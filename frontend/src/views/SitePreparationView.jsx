@@ -451,6 +451,37 @@ export default function SitePreparationView({
       {activeTab === 'deficiencies' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
+          {/* Informational Guidance Banner */}
+          <div style={{
+            backgroundColor: 'var(--color-primary-subtle)',
+            border: '1px solid rgba(2, 132, 199, 0.25)',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '14px',
+            fontSize: '0.84rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AlertOctagon size={22} color="var(--color-primary)" style={{ flexShrink: 0 }} />
+              <div>
+                <strong>Active Delivery Punch-List (Defects Tracking):</strong> This tab tracks <strong>only failed checks / open defects</strong> requiring contractor remediation before medical equipment delivery.
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  A counter of <strong>"0 Defects"</strong> means all pre-installation engineering checks in that category are <strong>100% compliant</strong> across hospitals. To inspect the full library of <strong>130 Standardized Inspection Questions</strong>, open the <strong>"130-Point Checklist Library"</strong> tab.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setActiveTab('master_130')}
+              style={{ whiteSpace: 'nowrap', fontWeight: 600 }}
+            >
+              Browse All 130 Questions →
+            </button>
+          </div>
+
           {/* Category Filter Pills */}
           <div style={{
             display: 'flex',
@@ -463,20 +494,34 @@ export default function SitePreparationView({
               type="button"
               className={`btn btn-sm ${selectedCategoryCode === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setSelectedCategoryCode('ALL')}
+              style={{ whiteSpace: 'nowrap', fontWeight: 600 }}
             >
-              All Categories ({deficiencies.length})
+              All Categories ({deficiencies.length} Open Defects)
             </button>
-            {categories.map(c => (
-              <button
-                key={c.code}
-                type="button"
-                className={`btn btn-sm ${selectedCategoryCode === c.code ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setSelectedCategoryCode(c.code)}
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                {c.code}: {c.name.split(' ')[0]} ({c.active_deficiencies_count || 0})
-              </button>
-            ))}
+            {categories.map(c => {
+              const defCount = Number(c.active_deficiencies_count || 0);
+              return (
+                <button
+                  key={c.code}
+                  type="button"
+                  className={`btn btn-sm ${selectedCategoryCode === c.code ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setSelectedCategoryCode(c.code)}
+                  style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <span>{c.code}: {c.name.split(' ')[0]}</span>
+                  <span style={{
+                    fontSize: '0.68rem',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    backgroundColor: defCount > 0 ? '#ef4444' : 'rgba(16, 185, 129, 0.18)',
+                    color: defCount > 0 ? '#ffffff' : '#059669',
+                    fontWeight: 700
+                  }}>
+                    {defCount > 0 ? `${defCount} Defect${defCount > 1 ? 's' : ''}` : '0 Defects'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Deficiencies Table */}
@@ -707,6 +752,48 @@ export default function SitePreparationView({
             </div>
           </div>
 
+          {/* Category Filter Pills for Master Library */}
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            paddingBottom: '8px',
+            borderBottom: '1px solid var(--border-color)'
+          }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${selectedCategoryCode === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setSelectedCategoryCode('ALL')}
+              style={{ whiteSpace: 'nowrap', fontWeight: 600 }}
+            >
+              All Categories (130 Questions)
+            </button>
+            {categories.map(c => {
+              const count = Number(c.total_checklist_items || 0);
+              return (
+                <button
+                  key={c.code}
+                  type="button"
+                  className={`btn btn-sm ${selectedCategoryCode === c.code ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setSelectedCategoryCode(c.code)}
+                  style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <span>{c.code}: {c.name.split(' ')[0]}</span>
+                  <span style={{
+                    fontSize: '0.68rem',
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    backgroundColor: selectedCategoryCode === c.code ? 'rgba(255,255,255,0.25)' : 'var(--color-primary-subtle)',
+                    color: selectedCategoryCode === c.code ? '#ffffff' : 'var(--color-primary)',
+                    fontWeight: 700
+                  }}>
+                    {count} Checks
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
             <table className="data-table" style={{ width: '100%' }}>
               <thead>
@@ -722,6 +809,7 @@ export default function SitePreparationView({
               </thead>
               <tbody>
                 {masterItems
+                  .filter(m => selectedCategoryCode === 'ALL' || m.category_code === selectedCategoryCode)
                   .filter(m => {
                     if (!searchQuery) return true;
                     const q = searchQuery.toLowerCase();
