@@ -1,6 +1,6 @@
 <?php
-// Settings API for Regional, Localization & Financial Configuration
-// Powered and Engineered by SanDS Lab Middle East W.L.L
+// Settings API for Regional, Localization, Branding & Financial Configuration
+// Powered and Engineered by SaNDS Lab Middle East W.L.L
 require_once __DIR__ . '/../config/db.php';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -13,6 +13,13 @@ if ($method === 'GET') {
         $settings = [];
         foreach ($rows as $row) {
             $settings[$row['setting_key']] = $row['setting_value'];
+        }
+
+        if (empty($settings['company_name'])) {
+            $settings['company_name'] = 'SaNDS Lab Middle East W.L.L';
+        }
+        if (empty($settings['company_logo'])) {
+            $settings['company_logo'] = '/sands_logo.png';
         }
 
         // Available regional configurations for Gulf countries and India
@@ -191,13 +198,34 @@ if ($method === 'GET') {
 if ($method === 'POST' || $method === 'PUT') {
     $input = getJsonInput();
     if (empty($input)) {
+        $input = $_POST;
+    }
+
+    // Handle direct logo file upload via multipart/form-data
+    if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
+        $file = $_FILES['logo'];
+        $uploadDir = __DIR__ . '/../uploads/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $allowedExts = ['png', 'jpg', 'jpeg', 'webp', 'svg'];
+        if (in_array($ext, $allowedExts, true)) {
+            $fileName = 'company_logo_' . time() . '.' . $ext;
+            if (move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
+                $input['company_logo'] = '/uploads/' . $fileName;
+            }
+        }
+    }
+
+    if (empty($input)) {
         jsonError('No settings payload received.');
     }
 
     try {
         $pdo->beginTransaction();
 
-        $updateStmt = $pdo->prepare("INSERT INTO `system_settings` (`setting_key`, `setting_value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
+        $updateStmt = $pdo->prepare("INSERT INTO `system_settings` (`setting_key`, `setting_value`, `category`) VALUES (?, ?, 'branding') ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
 
         $allowedKeys = [
             'region_preset',
@@ -208,7 +236,9 @@ if ($method === 'POST' || $method === 'PUT') {
             'currency_symbol',
             'currency_position',
             'currency_decimals',
-            'number_grouping'
+            'number_grouping',
+            'company_name',
+            'company_logo'
         ];
 
         $updatedCount = 0;

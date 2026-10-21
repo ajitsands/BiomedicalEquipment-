@@ -1,6 +1,6 @@
 -- Biomedical Equipment Maintenance Management System (BEMS / CMMS)
 -- Database Schema for Hospital Asset Tracking, PM Checklists, RFID & QR Code Lifecycle Management
--- Powered and Engineered by SanDS Lab Middle East W.L.L
+-- Powered and Engineered by SaNDS Lab Middle East W.L.L
 
 CREATE DATABASE IF NOT EXISTS `biomedical_cmms` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `biomedical_cmms`;

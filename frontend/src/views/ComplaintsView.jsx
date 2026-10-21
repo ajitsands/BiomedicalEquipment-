@@ -35,7 +35,7 @@ export default function ComplaintsView({
   // Resolve Ticket Modal
   const [activeTicket, setActiveTicket] = useState(null);
   const [newStatus, setNewStatus] = useState('Repaired & Verified');
-  const [assignedEngineer, setAssignedEngineer] = useState('Eng. Hassan Al-Majed (SanDS Lab)');
+  const [assignedEngineer, setAssignedEngineer] = useState('Eng. Hassan Al-Majed (SaNDS Lab)');
   const [actionTaken, setActionTaken] = useState('');
   const [rootCause, setRootCause] = useState('');
   const [replacedParts, setReplacedParts] = useState('');
@@ -65,7 +65,7 @@ export default function ComplaintsView({
   const openResolutionModal = (ticket) => {
     setActiveTicket(ticket);
     setNewStatus(ticket.status === 'Open' ? 'In Progress' : 'Repaired & Verified');
-    setAssignedEngineer(ticket.assigned_engineer || 'Eng. Hassan Al-Majed (SanDS Lab)');
+    setAssignedEngineer(ticket.assigned_engineer || 'Eng. Hassan Al-Majed (SaNDS Lab)');
     setActionTaken(ticket.action_taken || '');
     setRootCause(ticket.root_cause || '');
     setReplacedParts(ticket.replaced_parts || '');

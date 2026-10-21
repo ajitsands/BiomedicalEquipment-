@@ -1,7 +1,7 @@
 <?php
 // BioTrack CMMS — Version 2.0
 // Site Preparation Procedures REST API (GCC & India Master Catalogue)
-// Powered and Engineered by SanDS Lab Middle East W.L.L
+// Powered and Engineered by SaNDS Lab Middle East W.L.L
 require_once __DIR__ . '/../config/db.php';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';

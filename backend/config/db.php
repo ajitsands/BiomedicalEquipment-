@@ -1,7 +1,7 @@
 <?php
 // Database Connection & Shared API Utilities
 // Biomedical Equipment Maintenance Management System
-// Powered and Engineered by SanDS Lab Middle East W.L.L
+// Powered and Engineered by SaNDS Lab Middle East W.L.L
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");

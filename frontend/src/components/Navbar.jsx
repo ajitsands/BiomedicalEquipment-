@@ -54,12 +54,12 @@ export default function Navbar({
         {/* Brand Identity */}
         <div className="navbar-brand-section">
           <img 
-            src={theme === 'dark' ? '/sands_logo_white.png' : '/sands_logo.png'} 
-            alt="SanDS Lab Logo" 
+            src={settings?.company_logo || (theme === 'dark' ? '/sands_logo_white.png' : '/sands_logo.png')} 
+            alt={`${settings?.company_name || 'SaNDS Lab'} Logo`} 
             className="brand-logo-img"
             onClick={onOpenSandsSupport}
             style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
-            title="Click to view SaNDS Lab Vendor Support, WhatsApp & Products"
+            title={`Click to view ${settings?.company_name || 'SaNDS Lab'} Vendor Support, WhatsApp & Products`}
             onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
             onError={(e) => {

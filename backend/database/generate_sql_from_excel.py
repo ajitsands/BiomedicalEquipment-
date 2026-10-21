@@ -17,7 +17,7 @@ def esc(val):
 sql_lines = []
 
 sql_lines.append("-- SQL Migration & Data Import from Multispeciality_Hospital_Biomedical_Equipment_Checklists.xlsx")
-sql_lines.append("-- Powered and Engineered by SanDS Lab Middle East W.L.L")
+sql_lines.append("-- Powered and Engineered by SaNDS Lab Middle East W.L.L")
 sql_lines.append("USE `biomedical_cmms`;\n")
 
 # 1. Alter tables to add new fields if not present

@@ -150,3 +150,18 @@ stop_localhost_2020.bat
      - **Print Passport (A4)**: Formal WHO / IEC 62353 compliant single-page clinical dossier with hospital headers, safety classifications, PM/calibration timelines, vendor support hotlines, and engineering sign-off verification boxes.
      - **Print QR Label**: High-contrast, clean 3" x 2" equipment badge with high-resolution vector QR code, asset ID, serial number, and PM due date designed for thermal sticker printers.
 
+
+---
+
+## 9. SaNDS Lab Official Branding & Enterprise Customization
+
+1. **Global Casing Correction ("SanDS Lab" -> "SaNDS Lab")**:
+   - Audited the entire workspace and database for brand casing integrity.
+   - Corrected all occurrences of `SanDS Lab` to **`SaNDS Lab`** across HTML page title, meta description, Navbar, Footer, ReportsView, ChecklistRunnerModal, ComplaintsView, NewEquipmentModal, EquipmentPassportModal, PHP configs, SQL schemas, and active MySQL database text rows.
+
+2. **Company Name & Logo Upload in System Settings**:
+   - Enhanced [`SettingsModal.jsx`](file:///e:/medical_equpments/frontend/src/components/SettingsModal.jsx) with a dedicated **"Company Name & Logo"** tab.
+   - **Company / Hospital Name**: Text input to define the official hospital or vendor name (defaults to `SaNDS Lab Middle East W.L.L`, with 1-click reset).
+   - **Logo Upload**: Image upload input supporting PNG (transparent), SVG, JPEG, and WebP files up to 4MB, with live multi-card previews (light & dark cards) and 1-click restore to the official SaNDS Lab vector logo.
+   - **Backend Storage**: [`backend/api/settings.php`](file:///e:/medical_equpments/backend/api/settings.php) supports saving `company_name` and `company_logo` via JSON or `multipart/form-data` file upload into `backend/uploads/`.
+   - **Reactive Dynamic Branding**: Once updated in Settings, the new Company Name and Logo instantly render across the top Navbar, Footer, official Asset Passports, and PDF reports.

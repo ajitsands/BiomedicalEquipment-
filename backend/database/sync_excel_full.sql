@@ -1,5 +1,5 @@
 -- Complete Synchronization of WHO 63 Equipment Types & 2,079 Checklist Items
--- Powered and Engineered by SanDS Lab Middle East W.L.L
+-- Powered and Engineered by SaNDS Lab Middle East W.L.L
 USE `biomedical_cmms`;
 
 

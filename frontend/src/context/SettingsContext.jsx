@@ -12,7 +12,9 @@ const DEFAULT_SETTINGS = {
   currency_symbol: 'BD',
   currency_position: 'prefix',
   currency_decimals: 3,
-  number_grouping: 'standard'
+  number_grouping: 'standard',
+  company_name: 'SaNDS Lab Middle East W.L.L',
+  company_logo: '/sands_logo.png'
 };
 
 const REGIONS_CATALOG = {
@@ -385,19 +387,40 @@ export function SettingsProvider({ children }) {
    * Save custom settings changes to server and local state
    */
   const saveCustomSettings = useCallback(async (customValues, applyToAssets = false) => {
-    const merged = {
-      ...settings,
-      ...customValues,
-      apply_currency_to_equipments: applyToAssets
-    };
+    let payload;
+    let newMerged = { ...settings };
 
-    setSettings(merged);
-    localStorage.setItem('biotrack_system_settings', JSON.stringify(merged));
+    if (typeof FormData !== 'undefined' && customValues instanceof FormData) {
+      if (applyToAssets) {
+        customValues.append('apply_currency_to_equipments', '1');
+      }
+      payload = customValues;
+      // Extract known text fields for optimistic local state update
+      for (const [k, v] of customValues.entries()) {
+        if (typeof v === 'string') {
+          newMerged[k] = v;
+        }
+      }
+    } else {
+      newMerged = {
+        ...settings,
+        ...customValues,
+        apply_currency_to_equipments: applyToAssets
+      };
+      payload = newMerged;
+    }
+
+    setSettings(newMerged);
+    localStorage.setItem('biotrack_system_settings', JSON.stringify(newMerged));
 
     try {
-      const res = await updateSettings(merged);
+      const res = await updateSettings(payload);
       if (res && res.data) {
-        setSettings(prev => ({ ...prev, ...res.data }));
+        setSettings(prev => {
+          const finalSettings = { ...prev, ...res.data };
+          localStorage.setItem('biotrack_system_settings', JSON.stringify(finalSettings));
+          return finalSettings;
+        });
       }
       return { success: true };
     } catch (err) {

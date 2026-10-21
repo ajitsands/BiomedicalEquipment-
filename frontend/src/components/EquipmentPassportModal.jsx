@@ -36,7 +36,7 @@ export default function EquipmentPassportModal({
   onOpenBookComplaint,
   onShowToast
 }) {
-  const { formatDate, formatDateTime, formatCurrency } = useSettings();
+  const { formatDate, formatDateTime, formatCurrency, settings } = useSettings();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -595,7 +595,7 @@ export default function EquipmentPassportModal({
               <div className="card printable-sheet" style={{ padding: '24px', textAlign: 'center' }}>
                 <div style={{ border: '2px dashed var(--border-color)', padding: '20px', borderRadius: 'var(--radius-md)' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-primary)', marginBottom: '4px' }}>
-                    SanDS Lab Middle East W.L.L
+                    {settings?.company_name || 'SaNDS Lab Middle East W.L.L'}
                   </div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '14px' }}>
                     Hospital Clinical Engineering & Asset ID Tag

@@ -1,5 +1,5 @@
 -- SQL Migration & Data Import from Multispeciality_Hospital_Biomedical_Equipment_Checklists.xlsx
--- Powered and Engineered by SanDS Lab Middle East W.L.L
+-- Powered and Engineered by SaNDS Lab Middle East W.L.L
 USE `biomedical_cmms`;
 
 -- 1. Schema Extensions for Equipment Types & Checklists

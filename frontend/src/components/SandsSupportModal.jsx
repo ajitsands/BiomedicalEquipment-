@@ -19,7 +19,7 @@ export default function SandsSupportModal({ isOpen, onClose }) {
   const websiteUrl = 'https://sandslab.com';
   const productsUrl = 'https://sandslab.com/products';
   const supportEmail = 'support@sandslab.com';
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=Hello%20SanDS%20Lab%20Support%2C%20I%20am%20inquiring%20about%20BioTrack%20CMMS%20and%20Biomedical%20Solutions.`;
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=Hello%20SaNDS%20Lab%20Support%2C%20I%20am%20inquiring%20about%20BioTrack%20CMMS%20and%20Biomedical%20Solutions.`;
 
   return (
     <Modal

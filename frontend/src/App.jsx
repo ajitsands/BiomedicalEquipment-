@@ -232,7 +232,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Official SanDS Lab Footer */}
+      {/* Official SaNDS Lab Footer */}
       <Footer 
         theme={theme} 
         onOpenSandsSupport={() => setIsSandsSupportOpen(true)}

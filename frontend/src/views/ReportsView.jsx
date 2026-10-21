@@ -26,7 +26,9 @@ export default function ReportsView({
   onShowToast,
   onOpenSandsSupport
 }) {
-  const { formatDate, formatDateTime, formatCurrency } = useSettings();
+  const { formatDate, formatDateTime, formatCurrency, settings } = useSettings();
+  const companyName = settings?.company_name || 'SaNDS Lab Middle East W.L.L';
+  const companyLogo = settings?.company_logo || '/sands_logo.png';
   const [equipments, setEquipments] = useState([]);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState('');
   const [reportData, setReportData] = useState(null);
@@ -172,14 +174,14 @@ export default function ReportsView({
               title="Click to view SaNDS Lab Vendor Support, WhatsApp & Products"
             >
               <img 
-                src="/sands_logo.png" 
-                alt="SanDS Lab Logo" 
-                style={{ height: '48px', width: 'auto' }}
+                src={companyLogo} 
+                alt={`${companyName} Logo`} 
+                style={{ height: '48px', width: 'auto', objectFit: 'contain' }}
                 onError={(e) => { e.target.style.display = 'none'; }}
               />
               <div>
                 <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                  SanDS Lab Middle East W.L.L
+                  {companyName}
                 </h2>
                 <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
                   Biomedical Asset Management & Clinical Engineering Services
@@ -472,7 +474,7 @@ export default function ReportsView({
                 Lead Biomedical Engineer
               </div>
               <div style={{ fontSize: '0.76rem', color: '#64748b' }}>
-                SanDS Lab Middle East W.L.L
+                {companyName}
               </div>
             </div>
 
@@ -507,7 +509,7 @@ export default function ReportsView({
 
           {/* Footer Note */}
           <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '0.72rem', color: '#94a3b8' }}>
-            Powered and Engineered by SanDS Lab Middle East W.L.L • BioTrack CMMS • Page 1 of 1
+            Powered and Engineered by {companyName} • BioTrack CMMS • Page 1 of 1
           </div>
         </div>
       )}

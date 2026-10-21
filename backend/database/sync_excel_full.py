@@ -16,7 +16,7 @@ def esc(val):
 sql_lines = []
 
 sql_lines.append("-- Complete Synchronization of WHO 63 Equipment Types & 2,079 Checklist Items")
-sql_lines.append("-- Powered and Engineered by SanDS Lab Middle East W.L.L")
+sql_lines.append("-- Powered and Engineered by SaNDS Lab Middle East W.L.L")
 sql_lines.append("USE `biomedical_cmms`;\n")
 
 # 1. Alter tables

@@ -220,10 +220,11 @@ export async function fetchSettings() {
 }
 
 export async function updateSettings(data) {
+  const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
   const res = await fetch(`${API_BASE}/settings.php`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+    headers: isFormData ? {} : { 'Content-Type': 'application/json' },
+    body: isFormData ? data : JSON.stringify(data)
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.message || 'Failed to update system settings');

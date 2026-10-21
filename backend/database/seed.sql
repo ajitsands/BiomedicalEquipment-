@@ -1,6 +1,6 @@
 -- Biomedical Equipment Maintenance Management System (BEMS / CMMS)
 -- Seed Data: Real-world Hospital Biomedical Equipment, WHO-Aligned Checklists, Vendors, and Lifecycle Records
--- Powered and Engineered by SanDS Lab Middle East W.L.L
+-- Powered and Engineered by SaNDS Lab Middle East W.L.L
 
 USE `biomedical_cmms`;
 
@@ -175,8 +175,8 @@ INSERT INTO `equipments` (
     '2023-09-05', 21500.00, 'USD', '2023-09-20', 'Eng. Kevin Gallagher',
     '2023-09-20', '2026-09-19', 'Out of Warranty', 'In-House Maintenance', NULL,
     NULL, NULL, 0.00, 'Quarterly',
-    'Maintained in-house by SanDS Lab Biomedical Engineering team with Fluke QA-ES III analyzer.',
-    'SanDS Lab BME Engineering Duty Office', '+973-1789-4099', 'bme.service@sandslab.me',
+    'Maintained in-house by SaNDS Lab Biomedical Engineering team with Fluke QA-ES III analyzer.',
+    'SaNDS Lab BME Engineering Duty Office', '+973-1789-4099', 'bme.service@sandslab.me',
     'Calibration Due', '2026-05-15', '2026-08-15', '2026-05-15', '2026-08-15', 'Critical Life-Support'
 ),
 (
@@ -203,7 +203,7 @@ INSERT INTO `complaints` (
     3, 'NICU Pod B, Station 02', 'Total Power Failure', 'Critical - Life Support',
     'Syringe pump shut down unexpectedly during dopamine infusion. Device does not turn on even when connected to AC mains wall socket.',
     '2026-10-18 12:15:00',
-    'In Progress', 'Eng. Sadiq Al-Majed (SanDS Lab)', '2026-10-18 12:30:00',
+    'In Progress', 'Eng. Sadiq Al-Majed (SaNDS Lab)', '2026-10-18 12:30:00',
     'Assessed device in NICU. Swapped patient onto backup infusion pump immediately. Found internal power switch-mode converter blown due to electrical surge.',
     'Internal SMPS power supply board failed (blown capacitor C14 and fuse F1).',
     'SMPS Power Supply Module Board (Part # BAX-9941-PS)',
@@ -225,7 +225,7 @@ INSERT INTO `complaints` (
     2, 'OT Suite 3', 'Inaccurate Reading / Calibration Error', 'Critical - Life Support',
     'Return electrode monitoring (REM/CQM) alarm triggered intermittently during laparoscopic procedure with patient plate well adhered.',
     '2026-10-10 14:00:00',
-    'Closed', 'Eng. Hassan Al-Majed (SanDS Lab)', '2026-10-10 14:15:00',
+    'Closed', 'Eng. Hassan Al-Majed (SaNDS Lab)', '2026-10-10 14:15:00',
     'Inspected REM connector pins on front panel. Detected oxidation and looseness on female socket pin 2. Tightened tension clip, cleaned with DeoxIT, calibrated return resistance threshold.',
     'Loose socket tension on REM plate receptacle caused false impedance spike > 135 Ohms.',
     'Connector Pin Assembly Reconditioned',
@@ -253,7 +253,7 @@ INSERT INTO `maintenance_records` (
     'Internal test discharge load resistor calibrated'
 ),
 (
-    3, 'WO-PM-2026-0062', 3, 3, 'Electrical Safety Analyzer Test', 'Eng. Hassan Al-Majed (SanDS Lab)',
+    3, 'WO-PM-2026-0062', 3, 3, 'Electrical Safety Analyzer Test', 'Eng. Hassan Al-Majed (SaNDS Lab)',
     'SAND-BME-01', '2026-07-25', 'Passed - Ready for Clinical Use', '2026-10-25', 45,
     'Fluke ESA615 Electrical Safety Analyzer, ProSim 4 Vital Signs Simulator',
     'NIBP verified at 150 mmHg (measured 150.8 mmHg). Ground resistance 0.08 Ohms. Chassis leakage 42 µA.',

@@ -62,7 +62,7 @@ export default function NewEquipmentModal({
     contract_value: 0,
     maintenance_schedule_type: 'Quarterly',
     maintenance_schedule_notes: 'Under factory warranty. OEM quarterly certified PM visits included. Post-warranty requires Comprehensive CMC contract.',
-    emergency_contact_name: 'SanDS Lab Biomedical Engineering Duty Desk',
+    emergency_contact_name: 'SaNDS Lab Biomedical Engineering Duty Desk',
     emergency_phone: '+973-1789-4099',
     vendor_service_email: '',
     criticality: 'High Priority',

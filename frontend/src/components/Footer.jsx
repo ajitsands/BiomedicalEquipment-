@@ -1,7 +1,12 @@
 import React from 'react';
 import { ShieldCheck, Smartphone, Sparkles, MessageSquare } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function Footer({ theme, onOpenSandsSupport, onOpenComplianceModal }) {
+  const { settings } = useSettings();
+  const companyLogo = settings?.company_logo || (theme === 'dark' ? '/sands_logo_white.png' : '/sands_logo.png');
+  const companyName = settings?.company_name || 'SaNDS Lab Middle East W.L.L';
+
   return (
     <footer className="app-footer">
       {/* Brand & Vendor Info */}
@@ -15,7 +20,7 @@ export default function Footer({ theme, onOpenSandsSupport, onOpenComplianceModa
           borderRadius: '10px',
           transition: 'all 0.2s ease'
         }}
-        title="Click to view SaNDS Lab Vendor Support, WhatsApp & Products"
+        title={`Click to view ${companyName} Vendor Support, WhatsApp & Products`}
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor = 'rgba(236, 72, 153, 0.08)';
         }}
@@ -24,8 +29,8 @@ export default function Footer({ theme, onOpenSandsSupport, onOpenComplianceModa
         }}
       >
         <img 
-          src={theme === 'dark' ? '/sands_logo_white.png' : '/sands_logo.png'} 
-          alt="SanDS Lab Logo" 
+          src={companyLogo} 
+          alt={`${companyName} Logo`} 
           style={{ height: '34px', width: 'auto', objectFit: 'contain' }}
           onError={(e) => { e.target.style.display = 'none'; }}
         />
@@ -33,7 +38,7 @@ export default function Footer({ theme, onOpenSandsSupport, onOpenComplianceModa
           <span style={{ fontSize: '0.9rem' }}>
             Powered and Engineered by{' '}
             <strong className="footer-brand-gradient">
-              SanDS Lab Middle East W.L.L
+              {companyName}
             </strong>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '3px' }}>

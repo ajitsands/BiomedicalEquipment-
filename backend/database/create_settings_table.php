@@ -24,7 +24,9 @@ try {
         'currency_symbol' => ['value' => 'BD', 'cat' => 'financial', 'desc' => 'Currency Symbol or localized abbreviation'],
         'currency_position' => ['value' => 'prefix', 'cat' => 'financial', 'desc' => 'Position of currency symbol (prefix or suffix)'],
         'currency_decimals' => ['value' => '3', 'cat' => 'financial', 'desc' => 'Number of decimal places for currency amounts'],
-        'number_grouping' => ['value' => 'standard', 'cat' => 'regional', 'desc' => 'Number grouping system (standard thousands or lakh/crore for INR)']
+        'number_grouping' => ['value' => 'standard', 'cat' => 'regional', 'desc' => 'Number grouping system (standard thousands or lakh/crore for INR)'],
+        'company_name' => ['value' => 'SaNDS Lab Middle East W.L.L', 'cat' => 'branding', 'desc' => 'Hospital or Company Enterprise Name'],
+        'company_logo' => ['value' => '/sands_logo.png', 'cat' => 'branding', 'desc' => 'Company or Hospital Logo Image Path or Data URI']
     ];
 
     $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM `system_settings` WHERE `setting_key` = ?");

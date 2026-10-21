@@ -34,7 +34,7 @@ export default function ChecklistRunnerModal({
   const [activePhase, setActivePhase] = useState('ALL'); // 'ALL' or specific phase
 
   // Form State
-  const [performedBy, setPerformedBy] = useState('Eng. Hassan Al-Majed (SanDS Lab)');
+  const [performedBy, setPerformedBy] = useState('Eng. Hassan Al-Majed (SaNDS Lab)');
   const [technicianBadge, setTechnicianBadge] = useState('SAND-BME-01');
   const [performedDate, setPerformedDate] = useState(new Date().toISOString().slice(0, 10));
   const [timeSpent, setTimeSpent] = useState(45);

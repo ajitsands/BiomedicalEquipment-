@@ -14,7 +14,11 @@ import {
   AlertCircle,
   HelpCircle,
   Sliders,
-  DollarSign
+  DollarSign,
+  Building2,
+  Upload,
+  Image,
+  RotateCcw
 } from 'lucide-react';
 
 export default function SettingsModal({ isOpen, onClose, onShowToast }) {
@@ -31,8 +35,10 @@ export default function SettingsModal({ isOpen, onClose, onShowToast }) {
   const [formData, setFormData] = useState({ ...settings });
   const [applyToEquipments, setApplyToEquipments] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('presets'); // 'presets' | 'custom'
+  const [activeTab, setActiveTab] = useState('branding'); // 'branding' | 'presets' | 'custom'
   const [liveNow, setLiveNow] = useState(new Date());
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
 
   // Keep a live 1-second ticking clock for preview
   useEffect(() => {
@@ -42,8 +48,59 @@ export default function SettingsModal({ isOpen, onClose, onShowToast }) {
 
   // Sync internal state when settings change
   useEffect(() => {
-    setFormData({ ...settings });
+    setFormData({ 
+      ...settings,
+      company_name: settings?.company_name || 'SaNDS Lab Middle East W.L.L',
+      company_logo: settings?.company_logo || '/sands_logo.png'
+    });
+    setLogoFile(null);
+    setLogoPreview(null);
   }, [settings, isOpen]);
+
+  const handleLogoFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      if (onShowToast) {
+        onShowToast({
+          type: 'error',
+          title: 'Invalid File Type',
+          message: 'Please choose an image file (PNG, JPG, SVG, WebP).'
+        });
+      }
+      return;
+    }
+
+    if (file.size > 4 * 1024 * 1024) {
+      if (onShowToast) {
+        onShowToast({
+          type: 'warning',
+          title: 'File Too Large',
+          message: 'Logo file size must be less than 4MB.'
+        });
+      }
+      return;
+    }
+
+    setLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setLogoPreview(event.target.result);
+      setFormData(prev => ({ ...prev, company_logo: event.target.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetDefaultLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setFormData(prev => ({
+      ...prev,
+      company_name: 'SaNDS Lab Middle East W.L.L',
+      company_logo: '/sands_logo.png'
+    }));
+  };
 
   if (!isOpen) return null;
 
@@ -70,13 +127,26 @@ export default function SettingsModal({ isOpen, onClose, onShowToast }) {
     if (e) e.preventDefault();
     setSaving(true);
     try {
-      const res = await saveCustomSettings(formData, applyToEquipments);
+      let payload;
+      if (logoFile) {
+        payload = new FormData();
+        Object.entries(formData).forEach(([k, v]) => {
+          if (v !== null && v !== undefined) {
+            payload.append(k, v);
+          }
+        });
+        payload.append('logo', logoFile);
+      } else {
+        payload = formData;
+      }
+
+      const res = await saveCustomSettings(payload, applyToEquipments);
       if (res.success) {
         if (onShowToast) {
           onShowToast({
             type: 'success',
-            title: 'Settings Applied',
-            message: `Regional & currency settings updated (${formData.currency}, ${formData.timezone}, ${formData.date_format}).`
+            title: 'Settings Saved',
+            message: `Company branding and regional settings updated successfully.`
           });
         }
         onClose();
@@ -100,8 +170,8 @@ export default function SettingsModal({ isOpen, onClose, onShowToast }) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="System Regional & Localization Settings"
-      subtitle="Configure TimeZone, Date/Time Formats & Currency across Bahrain, Gulf Countries, and India"
+      title="System Settings & Organization Branding"
+      subtitle="Configure Company Name, Logo, TimeZone, Date/Time Formats & Currency across Gulf Countries and India"
       icon={Settings}
       size="xl"
     >
@@ -114,10 +184,25 @@ export default function SettingsModal({ isOpen, onClose, onShowToast }) {
           borderRadius: '12px',
           padding: '16px 20px',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
           gap: '16px',
           alignItems: 'center'
         }}>
+          <div>
+            <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              Organization Branding
+            </div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-primary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Building2 size={18} />
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '220px' }}>
+                {formData.company_name || 'SaNDS Lab Middle East W.L.L'}
+              </span>
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Active on Navbar, Passports & Reports
+            </div>
+          </div>
+
           <div>
             <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
               Live System Time ({formData.timezone})
@@ -127,39 +212,48 @@ export default function SettingsModal({ isOpen, onClose, onShowToast }) {
               <span>{formatTime(liveNow, true)}</span>
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Time Format: {formData.time_format === '24h' ? '24-Hour (Military)' : '12-Hour (AM/PM)'}
+              Format: {formData.time_format === '24h' ? '24-Hour (Military)' : '12-Hour (AM/PM)'}
             </div>
           </div>
 
           <div>
             <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Date Formatted ({formData.date_format})
+              Date Pattern ({formData.date_format})
             </div>
             <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Calendar size={18} style={{ color: 'var(--color-accent)' }} />
               <span>{formatDate(liveNow, formData.date_format)}</span>
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Active Pattern: {formData.date_format}
+              Active: {formData.date_format}
             </div>
           </div>
 
           <div>
             <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Currency Sample (Asset / Cost)
+              Currency ({formData.currency})
             </div>
             <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#16a34a', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Coins size={18} />
               <span>{formatCurrency(45250, formData.currency)}</span>
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Decimals: {formData.currency_decimals} • Code: {formData.currency} ({formData.currency_symbol})
+              Decimals: {formData.currency_decimals} • {formData.currency_symbol}
             </div>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+        <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'branding' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('branding')}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Building2 size={15} />
+            <span>Company Name & Logo</span>
+          </button>
           <button
             type="button"
             className={`btn btn-sm ${activeTab === 'presets' ? 'btn-primary' : 'btn-secondary'}`}
@@ -167,7 +261,7 @@ export default function SettingsModal({ isOpen, onClose, onShowToast }) {
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Globe size={15} />
-            <span>1-Click Gulf & India Regional Presets</span>
+            <span>1-Click Regional Presets</span>
           </button>
           <button
             type="button"
@@ -179,6 +273,193 @@ export default function SettingsModal({ isOpen, onClose, onShowToast }) {
             <span>Custom Detailed Configuration</span>
           </button>
         </div>
+
+        {/* TAB 1: Company Name & Logo Branding */}
+        {activeTab === 'branding' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+              Configure your hospital, clinical organization, or engineering enterprise identity. Your company name and uploaded logo dynamically render on all WHO Medical Equipment Passports, QR Label Sticker Tags, Inspection Reports, Header, and Footer.
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+              {/* Company / Hospital Name Form Card */}
+              <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <h4 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Building2 size={18} style={{ color: 'var(--color-primary)' }} />
+                  <span>Company / Organization Name</span>
+                </h4>
+                
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600 }}>
+                    Official Organization / Enterprise Title
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={formData.company_name || ''}
+                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    placeholder="e.g. SaNDS Lab Middle East W.L.L"
+                    style={{ fontSize: '1rem', fontWeight: 600 }}
+                  />
+                  <span className="form-help" style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>
+                    Default is <strong>SaNDS Lab Middle East W.L.L</strong>. You can customize this to your specific hospital, healthcare facility, or service vendor name.
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setFormData(prev => ({ ...prev, company_name: 'SaNDS Lab Middle East W.L.L' }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <RotateCcw size={14} />
+                    <span>Reset to SaNDS Lab</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Logo Upload Card */}
+              <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <h4 style={{ fontSize: '1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Image size={18} style={{ color: 'var(--color-accent)' }} />
+                  <span>Company / Hospital Logo Upload</span>
+                </h4>
+
+                {/* Logo Live Preview */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 16px',
+                  background: 'var(--bg-subtle)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-color)',
+                  gap: '16px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div style={{
+                      width: '90px',
+                      height: '60px',
+                      background: '#ffffff',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '6px',
+                      border: '1px solid var(--border-color)',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}>
+                      <img 
+                        src={logoPreview || formData.company_logo || '/sands_logo.png'} 
+                        alt="Company Logo Preview"
+                        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                        onError={(e) => { e.target.src = '/sands_logo.png'; }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 700 }}>
+                        {logoFile ? logoFile.name : (formData.company_logo?.includes('upload') ? 'Custom Uploaded Logo' : 'SaNDS Lab Official Logo')}
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        {logoFile ? `${Math.round(logoFile.size / 1024)} KB • Ready to save` : 'Active System Logo'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleResetDefaultLogo}
+                    title="Reset to default SaNDS Lab logo"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <RotateCcw size={14} />
+                    <span>Default Logo</span>
+                  </button>
+                </div>
+
+                {/* File Upload Dropzone / Button */}
+                <div>
+                  <input
+                    type="file"
+                    id="company-logo-input"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    style={{ display: 'none' }}
+                    onChange={handleLogoFileChange}
+                  />
+                  <label
+                    htmlFor="company-logo-input"
+                    className="btn btn-outline-primary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '12px',
+                      cursor: 'pointer',
+                      borderStyle: 'dashed',
+                      borderWidth: '2px'
+                    }}
+                  >
+                    <Upload size={18} />
+                    <span style={{ fontWeight: 600 }}>Click to Select & Upload New Logo Image</span>
+                  </label>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '6px', textAlign: 'center' }}>
+                    Supported formats: PNG (transparent recommended), SVG, JPEG, WebP (Max 4MB).
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Branding Navbar / Passport Mockup Preview */}
+            <div style={{
+              background: 'var(--bg-subtle)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              padding: '16px 20px'
+            }}>
+              <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>
+                Live Mockup: Top Navbar & Asset Passport Brand Header
+              </div>
+              <div style={{
+                background: 'var(--bg-surface)',
+                borderRadius: '8px',
+                padding: '12px 18px',
+                border: '1px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <img 
+                    src={logoPreview || formData.company_logo || '/sands_logo.png'} 
+                    alt="Brand Preview"
+                    style={{ height: '36px', width: 'auto', objectFit: 'contain' }}
+                    onError={(e) => { e.target.src = '/sands_logo.png'; }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                      {formData.company_name || 'SaNDS Lab Middle East W.L.L'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Biomedical Asset Lifecycle & Clinical Engineering Management
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+                    Active Branding Live
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TAB 1: 1-Click Regional Presets */}
         {activeTab === 'presets' && (

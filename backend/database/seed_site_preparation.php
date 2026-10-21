@@ -417,7 +417,7 @@ try {
         ],
         [
             'BH-AUD-2026-002', 'BH', 'King Hamad University Hospital — Busaiteen', 2, 'OT-Suite-04', 'Surgical Pavilion Tower A', '2nd Floor', 38,
-            'Artis pheno Robotic C-Arm Hybrid Operating Suite', 2, 'Eng. Marcus Weber (Getinge & Philips)', 'Eng. Hassan Al-Majed (SanDS Lab)',
+            'Artis pheno Robotic C-Arm Hybrid Operating Suite', 2, 'Eng. Marcus Weber (Getinge & Philips)', 'Eng. Hassan Al-Majed (SaNDS Lab)',
             'Al-Moayyed Construction Group', '2026-11-05', '2026-11-10', '2026-10-20', 'Approved & Ready for Delivery', 98.20, 0, 0,
             'NHRA Bahrain Pre-Installation Clearance: 100% compliant. Lead shielding 2.5mm Pb verified, laminar airflow 0.45 m/s certified, clean agent suppression live, isolated power system tested.'
         ],
@@ -508,7 +508,7 @@ try {
             'SRC-BH-2026-0089',
             $bhAuditId, // KHUH Hybrid OT
             98.20,
-            'Eng. Hassan Al-Majed, Lead Biomedical Engineer (SanDS Lab Middle East)',
+            'Eng. Hassan Al-Majed, Lead Biomedical Engineer (SaNDS Lab Middle East)',
             'Eng. Abdulla Al-Khalifa, Director of Hospital Facilities & Engineering',
             'Marcus Weber, Project Director (Getinge & Philips Healthcare)',
             'Dr. Khalid Al-Dosari, Chief Executive Officer & Medical Director',
