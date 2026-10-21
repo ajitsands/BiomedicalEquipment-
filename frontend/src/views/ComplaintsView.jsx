@@ -16,12 +16,14 @@ import {
   Plus, 
   FileText 
 } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function ComplaintsView({
   onBookComplaint,
   onViewPassport,
   onShowToast
 }) {
+  const { formatCurrency, formatDate, formatDateTime, settings } = useSettings();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -177,7 +179,7 @@ export default function ComplaintsView({
       accessor: 'reported_at',
       render: (row) => (
         <div>
-          <div style={{ fontSize: '0.82rem' }}>{new Date(row.reported_at).toLocaleDateString()}</div>
+          <div style={{ fontSize: '0.82rem' }}>{formatDateTime(row.reported_at)}</div>
           <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>by {row.booked_by_name}</div>
         </div>
       )
@@ -420,9 +422,10 @@ export default function ComplaintsView({
               </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Repair Cost ($)</label>
+                <label className="form-label">Repair Cost ({settings.currency})</label>
                 <input
                   type="number"
+                  step="0.01"
                   className="form-control"
                   value={repairCost}
                   onChange={(e) => setRepairCost(e.target.value)}

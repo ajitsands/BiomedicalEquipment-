@@ -19,12 +19,14 @@ import {
   Award, 
   Radio 
 } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function ReportsView({
   theme,
   onShowToast,
   onOpenSandsSupport
 }) {
+  const { formatDate, formatDateTime, formatCurrency } = useSettings();
   const [equipments, setEquipments] = useState([]);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState('');
   const [reportData, setReportData] = useState(null);
@@ -190,7 +192,7 @@ export default function ReportsView({
 
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '0.76rem', color: '#64748b' }}>Date of Report</div>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{new Date().toLocaleDateString()}</div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{formatDateTime(new Date())}</div>
               <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '2px' }}>
                 Asset Code: <strong style={{ color: '#0284c7' }}>{eq.asset_id}</strong>
               </div>
@@ -295,14 +297,14 @@ export default function ReportsView({
                 </tr>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '8px 6px', fontWeight: 600, color: '#475569' }}>Purchase Date:</td>
-                  <td style={{ padding: '8px 6px' }}>{eq.purchase_date}</td>
+                  <td style={{ padding: '8px 6px' }}>{formatDate(eq.purchase_date)}</td>
                   <td style={{ padding: '8px 6px', fontWeight: 600, color: '#475569' }}>Purchase Cost:</td>
-                  <td style={{ padding: '8px 6px' }}>{eq.currency} {Number(eq.purchase_cost).toLocaleString()}</td>
+                  <td style={{ padding: '8px 6px' }}>{formatCurrency(eq.purchase_cost, eq.currency)}</td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '8px 6px', fontWeight: 600, color: '#475569' }}>Warranty Period:</td>
                   <td style={{ padding: '8px 6px' }}>
-                    {eq.warranty_start_date} to {eq.warranty_end_date} ({eq.warranty_status})
+                    {formatDate(eq.warranty_start_date)} to {formatDate(eq.warranty_end_date)} ({eq.warranty_status})
                   </td>
                   <td style={{ padding: '8px 6px', fontWeight: 600, color: '#475569' }}>Current Contract Type:</td>
                   <td style={{ padding: '8px 6px', fontWeight: 600 }}>{eq.contract_type}</td>
@@ -360,12 +362,12 @@ export default function ReportsView({
                     <tr key={m.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '8px', fontFamily: 'monospace', fontWeight: 600 }}>{m.work_order_no}</td>
                       <td style={{ padding: '8px' }}>{m.maintenance_type}</td>
-                      <td style={{ padding: '8px' }}>{m.performed_date}</td>
+                      <td style={{ padding: '8px' }}>{formatDate(m.performed_date)}</td>
                       <td style={{ padding: '8px' }}>{m.performed_by}</td>
                       <td style={{ padding: '8px', fontWeight: 600, color: m.overall_result.includes('Passed') ? '#059669' : '#dc2626' }}>
                         {m.overall_result}
                       </td>
-                      <td style={{ padding: '8px', fontWeight: 700 }}>{m.next_pm_due_date}</td>
+                      <td style={{ padding: '8px', fontWeight: 700 }}>{formatDate(m.next_pm_due_date)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -410,7 +412,7 @@ export default function ReportsView({
                     <tr key={c.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '8px', fontFamily: 'monospace', fontWeight: 600 }}>{c.ticket_number}</td>
                       <td style={{ padding: '8px' }}>{c.complaint_category}</td>
-                      <td style={{ padding: '8px' }}>{new Date(c.reported_at).toLocaleDateString()}</td>
+                      <td style={{ padding: '8px' }}>{formatDate(c.reported_at)}</td>
                       <td style={{ padding: '8px' }}>{c.priority}</td>
                       <td style={{ padding: '8px' }}>{c.downtime_hours || 0} hrs</td>
                       <td style={{ padding: '8px', fontWeight: 600 }}>{c.status}</td>

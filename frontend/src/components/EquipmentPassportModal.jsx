@@ -26,6 +26,7 @@ import {
   CheckSquare, 
   Radio 
 } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function EquipmentPassportModal({
   equipmentId,
@@ -35,6 +36,7 @@ export default function EquipmentPassportModal({
   onOpenBookComplaint,
   onShowToast
 }) {
+  const { formatDate, formatDateTime, formatCurrency } = useSettings();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -269,7 +271,7 @@ export default function EquipmentPassportModal({
                   <div><strong>Serial Number:</strong> <code>{eq.serial_number}</code></div>
                   <div><strong>QR Code Token:</strong> <code>{eq.qr_code_token}</code></div>
                   <div><strong>RFID EPC Tag:</strong> <code>{eq.rfid_tag_id}</code></div>
-                  <div><strong>Last RFID Detection:</strong> {eq.rfid_last_detected_at ? new Date(eq.rfid_last_detected_at).toLocaleString() : 'N/A'}</div>
+                  <div><strong>Last RFID Detection:</strong> {eq.rfid_last_detected_at ? formatDateTime(eq.rfid_last_detected_at) : 'N/A'}</div>
                 </div>
               </div>
 
@@ -287,10 +289,10 @@ export default function EquipmentPassportModal({
               <div className="card" style={{ padding: '18px' }}>
                 <h4 style={{ fontSize: '0.95rem', marginBottom: '14px', color: 'var(--color-primary)' }}>Preventive Maintenance Timelines</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.88rem' }}>
-                  <div><strong>Last PM Performed:</strong> {eq.last_pm_date || 'N/A'}</div>
-                  <div><strong>Next PM Due Date:</strong> <strong style={{ color: 'var(--color-warning)' }}>{eq.next_pm_due_date || 'N/A'}</strong></div>
-                  <div><strong>Last Calibration:</strong> {eq.last_calibration_date || 'N/A'}</div>
-                  <div><strong>Next Calibration Due:</strong> {eq.next_calibration_due_date || 'N/A'}</div>
+                  <div><strong>Last PM Performed:</strong> {formatDate(eq.last_pm_date)}</div>
+                  <div><strong>Next PM Due Date:</strong> <strong style={{ color: 'var(--color-warning)' }}>{formatDate(eq.next_pm_due_date)}</strong></div>
+                  <div><strong>Last Calibration:</strong> {formatDate(eq.last_calibration_date)}</div>
+                  <div><strong>Next Calibration Due:</strong> {formatDate(eq.next_calibration_due_date)}</div>
                 </div>
               </div>
             </div>
@@ -308,9 +310,9 @@ export default function EquipmentPassportModal({
                   <div><strong>Purchased From:</strong> {eq.vendor_name}</div>
                   <div><strong>Purchase Order (PO):</strong> <code>{eq.po_number || 'N/A'}</code></div>
                   <div><strong>Invoice Number:</strong> <code>{eq.invoice_number || 'N/A'}</code></div>
-                  <div><strong>Purchase Date:</strong> {eq.purchase_date}</div>
-                  <div><strong>Purchase Cost:</strong> {eq.currency} {Number(eq.purchase_cost).toLocaleString()}</div>
-                  <div><strong>Installation Date:</strong> {eq.installation_date || 'N/A'}</div>
+                  <div><strong>Purchase Date:</strong> {formatDate(eq.purchase_date)}</div>
+                  <div><strong>Purchase Cost:</strong> {formatCurrency(eq.purchase_cost, eq.currency)}</div>
+                  <div><strong>Installation Date:</strong> {formatDate(eq.installation_date)}</div>
                   <div><strong>Commissioning Engineer:</strong> {eq.commissioning_engineer || 'N/A'}</div>
                 </div>
               </div>
@@ -327,11 +329,11 @@ export default function EquipmentPassportModal({
                       {eq.warranty_status}
                     </span>
                   </div>
-                  <div><strong>Warranty Period:</strong> {eq.warranty_start_date} to {eq.warranty_end_date}</div>
+                  <div><strong>Warranty Period:</strong> {formatDate(eq.warranty_start_date)} to {formatDate(eq.warranty_end_date)}</div>
                   <div><strong>Maintenance Contract Type:</strong> <span className="badge badge-neutral">{eq.contract_type}</span></div>
                   {eq.contract_vendor_name && <div><strong>Contract Vendor:</strong> {eq.contract_vendor_name}</div>}
-                  {eq.contract_start_date && <div><strong>Contract Validity:</strong> {eq.contract_start_date} to {eq.contract_end_date}</div>}
-                  {eq.contract_value > 0 && <div><strong>Annual Contract Value:</strong> {eq.currency} {Number(eq.contract_value).toLocaleString()}</div>}
+                  {eq.contract_start_date && <div><strong>Contract Validity:</strong> {formatDate(eq.contract_start_date)} to {formatDate(eq.contract_end_date)}</div>}
+                  {eq.contract_value > 0 && <div><strong>Annual Contract Value:</strong> {formatCurrency(eq.contract_value, eq.currency)}</div>}
                   <div><strong>Schedule Protocol:</strong> {eq.maintenance_schedule_type}</div>
                   {eq.maintenance_schedule_notes && (
                     <div style={{ backgroundColor: 'var(--bg-subtle)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', marginTop: '6px' }}>
@@ -379,9 +381,9 @@ export default function EquipmentPassportModal({
                         </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.84rem' }}>
-                        <div><strong>Date:</strong> {m.performed_date}</div>
+                        <div><strong>Date:</strong> {formatDate(m.performed_date)}</div>
                         <div><strong>Technician:</strong> {m.performed_by} ({m.technician_badge})</div>
-                        <div><strong>Next Due:</strong> {m.next_pm_due_date}</div>
+                        <div><strong>Next Due:</strong> {formatDate(m.next_pm_due_date)}</div>
                         <div><strong>Time Spent:</strong> {m.time_spent_minutes} mins</div>
                       </div>
                       {m.test_equipment_used && (
@@ -456,7 +458,7 @@ export default function EquipmentPassportModal({
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                         <div>Reported by: <strong>{c.booked_by_name}</strong></div>
-                        <div>Date: {new Date(c.reported_at).toLocaleString()}</div>
+                        <div>Date: {formatDateTime(c.reported_at)}</div>
                         {c.assigned_engineer && <div>Engineer: <strong>{c.assigned_engineer}</strong></div>}
                         {c.downtime_hours > 0 && <div>Downtime: <strong>{c.downtime_hours} hrs</strong></div>}
                       </div>
@@ -639,7 +641,7 @@ export default function EquipmentPassportModal({
                       <div key={log.id} style={{ fontSize: '0.78rem', padding: '8px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)' }}>
                         <div style={{ fontWeight: 600 }}>{log.detected_department} • {log.detected_room}</div>
                         <div style={{ color: 'var(--text-muted)' }}>
-                          {new Date(log.scan_timestamp).toLocaleString()} • RSSI: {log.signal_strength_rssi} dBm
+                          {formatDateTime(log.scan_timestamp)} • RSSI: {log.signal_strength_rssi} dBm
                         </div>
                       </div>
                     ))

@@ -181,3 +181,20 @@ export async function uploadAttachment(formData) {
   if (!res.ok) throw new Error(json.message || 'Failed to upload attachment');
   return json;
 }
+
+export async function fetchSettings() {
+  const res = await fetch(`${API_BASE}/settings.php`);
+  if (!res.ok) throw new Error('Failed to fetch system settings');
+  return res.json();
+}
+
+export async function updateSettings(data) {
+  const res = await fetch(`${API_BASE}/settings.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update system settings');
+  return json;
+}

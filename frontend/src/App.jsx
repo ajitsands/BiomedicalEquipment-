@@ -19,6 +19,7 @@ import NewEquipmentModal from './components/NewEquipmentModal';
 import RfidScanModal from './components/RfidScanModal';
 import SandsSupportModal from './components/SandsSupportModal';
 import WhoIecComplianceModal from './components/WhoIecComplianceModal';
+import SettingsModal from './components/SettingsModal';
 
 import { fetchDashboardStats } from './services/api';
 
@@ -40,6 +41,7 @@ export default function App() {
   const [isRfidScanOpen, setIsRfidScanOpen] = useState(false);
   const [isSandsSupportOpen, setIsSandsSupportOpen] = useState(false);
   const [isComplianceOpen, setIsComplianceOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Badge counters
   const [activeComplaintsCount, setActiveComplaintsCount] = useState(0);
@@ -98,6 +100,7 @@ export default function App() {
         onOpenBookComplaint={() => handleOpenBookComplaint(null)}
         onOpenNewEquipment={() => setIsNewEquipmentOpen(true)}
         onOpenSandsSupport={() => setIsSandsSupportOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         activeComplaintsCount={activeComplaintsCount}
         overduePmCount={overduePmCount}
       />
@@ -237,6 +240,15 @@ export default function App() {
         <WhoIecComplianceModal
           isOpen={isComplianceOpen}
           onClose={() => setIsComplianceOpen(false)}
+        />
+      )}
+
+      {/* Regional & Localization Settings Modal (Gulf & India) */}
+      {isSettingsOpen && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onShowToast={showToast}
         />
       )}
 

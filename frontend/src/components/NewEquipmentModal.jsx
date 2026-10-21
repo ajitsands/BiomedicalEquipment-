@@ -16,6 +16,7 @@ import {
   QrCode, 
   Radio 
 } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function NewEquipmentModal({
   isOpen,
@@ -23,6 +24,7 @@ export default function NewEquipmentModal({
   onSuccess,
   onShowToast
 }) {
+  const { settings } = useSettings();
   const [types, setTypes] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -48,7 +50,7 @@ export default function NewEquipmentModal({
     invoice_number: '',
     purchase_date: new Date().toISOString().slice(0, 10),
     purchase_cost: 15000,
-    currency: 'USD',
+    currency: settings?.currency || 'BHD',
     installation_date: new Date().toISOString().slice(0, 10),
     commissioning_engineer: 'Eng. Hassan Al-Majed',
     warranty_start_date: new Date().toISOString().slice(0, 10),
@@ -485,10 +487,22 @@ export default function NewEquipmentModal({
                 value={formData.currency}
                 onChange={handleChange}
               >
-                <option value="USD">USD ($)</option>
-                <option value="BHD">BHD (BD)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="SAR">SAR (SR)</option>
+                <optgroup label="Gulf Region (GCC)">
+                  <option value="BHD">BHD — Bahraini Dinar (BD)</option>
+                  <option value="SAR">SAR — Saudi Riyal (ر.س)</option>
+                  <option value="AED">AED — UAE Dirham (د.إ)</option>
+                  <option value="KWD">KWD — Kuwaiti Dinar (KD)</option>
+                  <option value="QAR">QAR — Qatari Riyal (QR)</option>
+                  <option value="OMR">OMR — Omani Rial (OMR)</option>
+                </optgroup>
+                <optgroup label="India">
+                  <option value="INR">INR — Indian Rupee (₹)</option>
+                </optgroup>
+                <optgroup label="International">
+                  <option value="USD">USD — US Dollar ($)</option>
+                  <option value="EUR">EUR — Euro (€)</option>
+                  <option value="GBP">GBP — British Pound (£)</option>
+                </optgroup>
               </select>
             </div>
           </div>

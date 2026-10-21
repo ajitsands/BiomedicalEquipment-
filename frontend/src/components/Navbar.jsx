@@ -10,8 +10,11 @@ import {
   Plus, 
   Sun, 
   Moon, 
-  Headphones 
+  Headphones,
+  Settings,
+  Globe
 } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function Navbar({
   currentView,
@@ -21,9 +24,12 @@ export default function Navbar({
   onOpenBookComplaint,
   onOpenNewEquipment,
   onOpenSandsSupport,
+  onOpenSettings,
   activeComplaintsCount = 0,
   overduePmCount = 0
 }) {
+  const { settings, activeRegion } = useSettings();
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'equipments', label: 'Equipments Master', icon: Layers },
@@ -71,6 +77,25 @@ export default function Navbar({
 
         {/* Right Action Controls */}
         <div className="navbar-actions">
+          {/* Regional Settings Button with Live Flag & Currency Pill */}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenSettings}
+            title={`Regional Settings: ${activeRegion?.name || 'Gulf & India'} | ${settings.currency} | ${settings.timezone}`}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              border: '1px solid rgba(2, 132, 199, 0.4)',
+              background: 'rgba(2, 132, 199, 0.08)'
+            }}
+          >
+            <Settings size={15} style={{ color: 'var(--color-primary)' }} />
+            <span style={{ fontWeight: 600 }}>{activeRegion?.flag || '🌐'} {settings.currency}</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>({settings.date_format})</span>
+          </button>
+
           {/* SaNDS Lab Help Line (+973 35078079) Button */}
           <button
             type="button"
@@ -139,8 +164,21 @@ export default function Navbar({
               </button>
             );
           })}
+
+          {/* Settings Tab in Navigation */}
+          <button
+            type="button"
+            className="nav-link-btn"
+            onClick={onOpenSettings}
+            title="Configure TimeZone, Date & Time Formats, and Currency for Gulf and India"
+            style={{ marginLeft: 'auto' }}
+          >
+            <Settings size={16} />
+            <span>Regional Settings</span>
+          </button>
         </nav>
       </div>
     </header>
   );
 }
+

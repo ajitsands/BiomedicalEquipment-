@@ -15,12 +15,14 @@ import {
   CheckCircle2, 
   Clock 
 } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function RfidView({
   onViewPassport,
   onOpenRfidScanner,
   onShowToast
 }) {
+  const { formatDateTime } = useSettings();
   const [equipments, setEquipments] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [rfidLogs, setRfidLogs] = useState([]);
@@ -214,7 +216,7 @@ export default function RfidView({
               ) : (
                 rfidLogs.slice(0, 8).map((log) => (
                   <tr key={log.id}>
-                    <td>{new Date(log.scan_timestamp).toLocaleString()}</td>
+                    <td>{formatDateTime(log.scan_timestamp)}</td>
                     <td>
                       <strong 
                         style={{ color: 'var(--color-primary)', cursor: 'pointer' }}

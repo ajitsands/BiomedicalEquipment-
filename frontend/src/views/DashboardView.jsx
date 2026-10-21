@@ -20,6 +20,7 @@ import {
   CheckCircle2, 
   ExternalLink 
 } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function DashboardView({
   onViewEquipmentPassport,
@@ -29,6 +30,7 @@ export default function DashboardView({
   onOpenRfidScanner,
   onShowToast
 }) {
+  const { formatCurrency, formatDate, formatTime, formatDateTime } = useSettings();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -142,7 +144,7 @@ export default function DashboardView({
             <span className="stat-label">Total Equipment Master</span>
             <span className="stat-value">{counts.total_equipments || 0}</span>
             <span className="stat-subtitle">
-              Valued at ${Number(counts.total_asset_value || 0).toLocaleString()}
+              Valued at {formatCurrency(counts.total_asset_value || 0)}
             </span>
           </div>
         </div>
@@ -253,7 +255,7 @@ export default function DashboardView({
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-color-subtle)', paddingTop: '6px' }}>
-                      <div>Reported: {new Date(c.reported_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} by {c.booked_by_name}</div>
+                      <div>Reported: {formatDateTime(c.reported_at)} by {c.booked_by_name}</div>
                       {!isResolved && (
                         <button
                           type="button"
@@ -325,7 +327,7 @@ export default function DashboardView({
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     <div>Inspector: <strong>{m.performed_by}</strong></div>
-                    <div>Next Due: <strong style={{ color: 'var(--color-warning)' }}>{m.next_pm_due_date}</strong></div>
+                    <div>Next Due: <strong style={{ color: 'var(--color-warning)' }}>{formatDate(m.next_pm_due_date)}</strong></div>
                   </div>
                 </div>
               ))

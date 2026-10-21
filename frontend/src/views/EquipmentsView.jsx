@@ -19,6 +19,7 @@ import {
   ShieldCheck, 
   Clock 
 } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function EquipmentsView({
   onViewPassport,
@@ -28,6 +29,7 @@ export default function EquipmentsView({
   onOpenRfidScanner,
   onShowToast
 }) {
+  const { formatDate, formatCurrency } = useSettings();
   const [equipments, setEquipments] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -196,7 +198,7 @@ export default function EquipmentsView({
         const isOverdue = row.next_pm_due_date && new Date(row.next_pm_due_date) < new Date();
         return (
           <div style={{ color: isOverdue ? 'var(--color-danger)' : 'inherit', fontWeight: isOverdue ? 700 : 500 }}>
-            {row.next_pm_due_date || 'N/A'}
+            {formatDate(row.next_pm_due_date)}
             {isOverdue && <div style={{ fontSize: '0.72rem' }}>⚠️ Overdue</div>}
           </div>
         );
