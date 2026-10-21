@@ -299,11 +299,12 @@ export default function SitePreparationView({
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
+            <div className="site-audits-grid">
               {inspections.map(insp => {
                 const readiness = Number(insp.readiness_percentage || 0);
                 const isApproved = insp.overall_status === 'Approved & Ready for Delivery';
                 const isRemediation = insp.overall_status === 'Remediation Required';
+                const isConditional = insp.overall_status === 'Conditional Clearance';
                 const hasCritical = Number(insp.critical_deficiencies_count) > 0;
 
                 return (
@@ -311,7 +312,7 @@ export default function SitePreparationView({
                     key={insp.id}
                     className="card"
                     style={{
-                      padding: '18px',
+                      padding: '16px',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '12px',
@@ -319,38 +320,44 @@ export default function SitePreparationView({
                       transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                     }}
                   >
-                    {/* Header: Audit Reference & Country */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '1.3rem' }}>{insp.country_flag || '🌐'}</span>
-                        <div>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.88rem', color: 'var(--color-primary)' }}>
+                    {/* Header: Audit Reference & Country & Status Badge */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: '1.35rem', flexShrink: 0 }}>{insp.country_flag || '🌐'}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.84rem', color: 'var(--color-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {insp.audit_number}
-                          </span>
-                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {insp.country_name} • {insp.regulatory_authority?.split(' ')[0] || 'MOH'}
                           </div>
                         </div>
                       </div>
 
-                      <span className={`badge ${
-                        isApproved ? 'badge-success' : 
-                        isRemediation ? 'badge-danger' : 
-                        insp.overall_status === 'Conditional Clearance' ? 'badge-warning' : 'badge-neutral'
-                      }`} style={{ fontSize: '0.72rem' }}>
-                        {insp.overall_status}
+                      <span 
+                        className={`badge ${
+                          isApproved ? 'badge-success' : 
+                          isRemediation ? 'badge-danger' : 
+                          isConditional ? 'badge-warning' : 'badge-neutral'
+                        }`} 
+                        style={{ fontSize: '0.68rem', padding: '3px 8px', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 700 }}
+                        title={insp.overall_status}
+                      >
+                        {isApproved ? 'Approved' : isRemediation ? 'Remediation' : isConditional ? 'Conditional' : 'Inspecting'}
                       </span>
                     </div>
 
                     {/* Room & Target Medical Equipment */}
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-main)' }}>
-                        {insp.room_number} — {insp.facility_name}
+                    <div style={{ minHeight: '84px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.96rem', color: 'var(--text-main)', lineHeight: 1.3 }}>
+                          {insp.room_number} — {insp.facility_name}
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          {insp.department_name} • {insp.building} ({insp.floor})
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {insp.department_name} • {insp.building} ({insp.floor})
-                      </div>
-                      <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--color-primary)', marginTop: '6px' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-primary)', marginTop: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={insp.target_model}>
                         🎯 {insp.target_model}
                       </div>
                     </div>
@@ -382,46 +389,52 @@ export default function SitePreparationView({
                     </div>
 
                     {/* Key Stakeholders & Delivery Target */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                      <div>BioMed: <strong>{insp.lead_biomedical_engineer}</strong></div>
-                      <div>Target Install: <strong>{formatDate(insp.target_installation_date)}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' }} title={insp.lead_biomedical_engineer}>
+                        BioMed: <strong>{insp.lead_biomedical_engineer}</strong>
+                      </div>
+                      <div style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        Target: <strong>{formatDate(insp.target_installation_date)}</strong>
+                      </div>
                     </div>
 
-                    {/* Card Actions */}
-                    <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '4px' }}>
+                    {/* Card Actions: Clean 2-Tier Row for 4 Columns */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: 'auto' }}>
                       <button
                         type="button"
                         className="btn btn-secondary btn-sm"
                         onClick={() => onRunAudit(insp.id)}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 600 }}
                       >
                         <CheckSquare size={14} />
                         <span>Run 130-Point Audit</span>
                       </button>
 
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => onEditAudit && onEditAudit(insp)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                        title="Edit Hospital Name, Room, Model, or Audit Info"
-                      >
-                        <Edit3 size={14} />
-                        <span>Edit</span>
-                      </button>
-
-                      {isApproved && (
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm"
-                          onClick={() => onViewCertificate(insp)}
-                          style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                          title="View Official Site Clearance Certificate"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => onEditAudit && onEditAudit(insp)}
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                          title="Edit Hospital Name, Room, Model, or Audit Info"
                         >
-                          <Award size={14} />
-                          <span>Certificate</span>
+                          <Edit3 size={13} />
+                          <span>Edit Details</span>
                         </button>
-                      )}
+
+                        {isApproved && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => onViewCertificate(insp)}
+                            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                            title="View Official Site Clearance Certificate"
+                          >
+                            <Award size={14} />
+                            <span>Certificate</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                   </div>
