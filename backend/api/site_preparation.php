@@ -418,9 +418,17 @@ if ($method === 'POST') {
                 `verified_at`=NOW()");
 
             $createDeficiency = $pdo->prepare("INSERT INTO `site_deficiencies`
-                (`deficiency_ticket`, `inspection_id`, `checklist_item_id`, `category_code`, `title`, `description`, `assigned_department`, `priority`, `status`, `corrective_action_plan`, `due_date`, `blocks_installation`)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Open', ?, DATE_ADD(CURDATE(), INTERVAL 7 DAY), ?)
-                ON DUPLICATE KEY UPDATE `description`=VALUES(`description`), `priority`=VALUES(`priority`)");
+                (`deficiency_ticket`, `inspection_id`, `checklist_item_id`, `category_code`, `title`, `description`, `assigned_department`, `priority`, `status`, `corrective_action_plan`, `due_date`, `blocks_installation`, `resolved_by`, `resolved_at`, `verified_by`, `verified_at`)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Open', ?, DATE_ADD(CURDATE(), INTERVAL 7 DAY), ?, NULL, NULL, NULL, NULL)
+                ON DUPLICATE KEY UPDATE 
+                    `status` = 'Open',
+                    `description` = VALUES(`description`), 
+                    `priority` = VALUES(`priority`),
+                    `blocks_installation` = VALUES(`blocks_installation`),
+                    `resolved_by` = NULL,
+                    `resolved_at` = NULL,
+                    `verified_by` = NULL,
+                    `verified_at` = NULL");
 
             foreach ($items as $it) {
                 $itemId = (int)($it['checklist_item_id'] ?? 0);
@@ -444,7 +452,7 @@ if ($method === 'POST') {
                         ->execute([$inspectionId, $itemId]);
                 }
 
-                // Auto-generate deficiency ticket if marked as Fail
+                // Auto-generate or re-open deficiency ticket if marked as Fail
                 if ($result === 'Fail') {
                     $master = $pdo->query("SELECT * FROM site_checklist_master WHERE id = {$itemId}")->fetch();
                     if ($master) {
@@ -492,15 +500,24 @@ if ($method === 'POST') {
 
             $openDefs = (int)($defStats['open_defs'] ?? 0);
             $critDefs = (int)($defStats['critical_defs'] ?? 0);
+            $failedCount = (int)($counts['failed_count'] ?? 0);
 
-            // Determine Overall Audit Status
+            // Determine Overall Audit Status:
+            // 1. Any open Critical deficiency STRICTLY forces 'Remediation Required' (Blocks Delivery!)
+            // 2. To be 'Approved & Ready for Delivery': Must have >= 95% readiness, 0 open defs, 0 failed checks, 0 critical defs
+            // 3. 'Conditional Clearance': >= 85% readiness, 0 critical defs, max 1-2 minor non-critical pending items
+            // 4. Otherwise 'Remediation Required'
             $newStatus = 'Under Inspection';
-            if ($critDefs > 0 || $counts['failed_count'] > 2) {
+            if ($critDefs > 0) {
                 $newStatus = 'Remediation Required';
-            } elseif ($readiness >= 95.0 && $openDefs === 0) {
+            } elseif ($failedCount > 2 || $openDefs > 2) {
+                $newStatus = 'Remediation Required';
+            } elseif ($readiness >= 95.0 && $openDefs === 0 && $failedCount === 0 && $critDefs === 0) {
                 $newStatus = 'Approved & Ready for Delivery';
             } elseif ($readiness >= 85.0 && $critDefs === 0) {
                 $newStatus = 'Conditional Clearance';
+            } else {
+                $newStatus = 'Remediation Required';
             }
 
             // Update site_inspections record
