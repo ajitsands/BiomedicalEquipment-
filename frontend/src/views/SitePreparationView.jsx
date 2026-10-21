@@ -481,9 +481,38 @@ export default function SitePreparationView({
                 </tr>
               </thead>
               <tbody>
-                {deficiencies
-                  .filter(d => selectedCategoryCode === 'ALL' || d.category_code === selectedCategoryCode)
-                  .map(def => {
+                {(() => {
+                  const filtered = deficiencies.filter(d => selectedCategoryCode === 'ALL' || d.category_code === selectedCategoryCode);
+                  if (filtered.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="7" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={36} color="#10b981" />
+                            <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '1rem' }}>
+                              Zero Open Deficiencies in {selectedCategoryCode === 'ALL' ? 'Selected Scope' : selectedCategoryCode}
+                            </div>
+                            <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', maxWidth: '480px', lineHeight: 1.4 }}>
+                              All inspected site parameters in this category are compliant across hospitals.
+                              {deficiencies.length > 0 && selectedCategoryCode !== 'ALL' && (
+                                <div style={{ marginTop: '10px' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => setSelectedCategoryCode('ALL')}
+                                  >
+                                    View All {deficiencies.length} Hospital Delivery Punch-List Items
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return filtered.map(def => {
                     const isClosed = def.status === 'Closed after verification';
                     const isCritical = def.priority === 'Critical';
 
@@ -556,7 +585,8 @@ export default function SitePreparationView({
                         </td>
                       </tr>
                     );
-                  })}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
