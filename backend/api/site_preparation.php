@@ -431,6 +431,19 @@ if ($method === 'POST') {
 
                 $updateDetail->execute([$inspectionId, $itemId, $result, $measured, $isDef, $remarks]);
 
+                // If item is Pass or N/A, automatically close any prior open deficiency ticket for this item
+                if ($result === 'Pass' || $result === 'N/A') {
+                    $pdo->prepare("UPDATE `site_deficiencies` SET 
+                        `status` = 'Closed after verification',
+                        `resolved_by` = 'Biomedical Inspector (Audit Rectification)',
+                        `resolved_at` = NOW(),
+                        `verified_by` = 'Biomedical Inspector',
+                        `verified_at` = NOW(),
+                        `blocks_installation` = 0
+                        WHERE `inspection_id` = ? AND `checklist_item_id` = ? AND `status` != 'Closed after verification'")
+                        ->execute([$inspectionId, $itemId]);
+                }
+
                 // Auto-generate deficiency ticket if marked as Fail
                 if ($result === 'Fail') {
                     $master = $pdo->query("SELECT * FROM site_checklist_master WHERE id = {$itemId}")->fetch();
@@ -620,12 +633,52 @@ if ($method === 'PUT') {
                 $id
             ]);
 
-            // Fetch inspection ID and update audit counts
-            $auditId = $pdo->query("SELECT inspection_id FROM site_deficiencies WHERE id = {$id}")->fetchColumn();
-            if ($auditId) {
-                $openDefs = $pdo->query("SELECT COUNT(*) FROM site_deficiencies WHERE inspection_id = {$auditId} AND status NOT IN ('Closed after verification')")->fetchColumn();
-                $critDefs = $pdo->query("SELECT COUNT(*) FROM site_deficiencies WHERE inspection_id = {$auditId} AND priority = 'Critical' AND status NOT IN ('Closed after verification')")->fetchColumn();
-                $pdo->exec("UPDATE site_inspections SET open_deficiencies_count = {$openDefs}, critical_deficiencies_count = {$critDefs} WHERE id = {$auditId}");
+            // Fetch inspection ID and checklist item ID to sync audit counts and status
+            $defRow = $pdo->query("SELECT inspection_id, checklist_item_id FROM site_deficiencies WHERE id = {$id}")->fetch(PDO::FETCH_ASSOC);
+            if ($defRow) {
+                $auditId = (int)$defRow['inspection_id'];
+                $itemId = (int)$defRow['checklist_item_id'];
+
+                // Sync site_inspection_details if closed
+                if ($isResolved && $itemId > 0) {
+                    $pdo->prepare("UPDATE site_inspection_details SET result = 'Pass', is_deficiency = 0, verified_at = NOW() WHERE inspection_id = ? AND checklist_item_id = ?")
+                        ->execute([$auditId, $itemId]);
+                }
+
+                // Recalculate Readiness Percentage
+                $statsStmt = $pdo->prepare("SELECT 
+                    COUNT(*) as total_items,
+                    SUM(CASE WHEN result = 'Pass' THEN 1 ELSE 0 END) as passed_count,
+                    SUM(CASE WHEN result = 'Fail' THEN 1 ELSE 0 END) as failed_count,
+                    SUM(CASE WHEN result = 'Pending' THEN 1 ELSE 0 END) as pending_count,
+                    SUM(CASE WHEN result = 'N/A' THEN 1 ELSE 0 END) as na_count
+                FROM site_inspection_details WHERE inspection_id = ?");
+                $statsStmt->execute([$auditId]);
+                $counts = $statsStmt->fetch(PDO::FETCH_ASSOC);
+
+                $applicable = (int)$counts['total_items'] - (int)$counts['na_count'];
+                $passed = (int)$counts['passed_count'];
+                $readiness = ($applicable > 0) ? round(($passed / $applicable) * 100, 2) : 0.00;
+
+                $openDefs = (int)$pdo->query("SELECT COUNT(*) FROM site_deficiencies WHERE inspection_id = {$auditId} AND status NOT IN ('Closed after verification')")->fetchColumn();
+                $critDefs = (int)$pdo->query("SELECT COUNT(*) FROM site_deficiencies WHERE inspection_id = {$auditId} AND priority = 'Critical' AND status NOT IN ('Closed after verification')")->fetchColumn();
+
+                $newStatus = 'Under Inspection';
+                if ($critDefs > 0 || (int)$counts['failed_count'] > 2) {
+                    $newStatus = 'Remediation Required';
+                } elseif ($readiness >= 95.0 && $openDefs === 0) {
+                    $newStatus = 'Approved & Ready for Delivery';
+                } elseif ($readiness >= 85.0 && $critDefs === 0) {
+                    $newStatus = 'Conditional Clearance';
+                }
+
+                $pdo->prepare("UPDATE site_inspections SET 
+                    readiness_percentage = ?, 
+                    overall_status = ?, 
+                    open_deficiencies_count = ?, 
+                    critical_deficiencies_count = ? 
+                    WHERE id = ?")
+                    ->execute([$readiness, $newStatus, $openDefs, $critDefs, $auditId]);
             }
 
             jsonResponse([
