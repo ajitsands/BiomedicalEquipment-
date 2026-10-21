@@ -174,10 +174,99 @@ export async function deleteDepartment(id) {
   return json;
 }
 
-export async function fetchVendors() {
-  const res = await fetch(`${API_BASE}/vendors.php`);
-  if (!res.ok) throw new Error('Failed to fetch vendors');
+export async function fetchVendors(type = '') {
+  let url = `${API_BASE}/vendors.php`;
+  if (type && type !== 'ALL') {
+    url += `?type=${encodeURIComponent(type)}`;
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to fetch partners/vendors');
   return res.json();
+}
+
+export async function createVendor(data) {
+  const res = await fetch(`${API_BASE}/vendors.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to create partner');
+  return json;
+}
+
+export async function updateVendor(data) {
+  const res = await fetch(`${API_BASE}/vendors.php`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update partner');
+  return json;
+}
+
+export async function deleteVendor(id) {
+  const res = await fetch(`${API_BASE}/vendors.php?id=${id}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to deactivate partner');
+  return json;
+}
+
+// ==========================================
+// Employees Master & Authentication API
+// ==========================================
+export async function fetchEmployees(filters = {}) {
+  const params = new URLSearchParams();
+  Object.keys(filters).forEach(k => {
+    if (filters[k] !== undefined && filters[k] !== null && filters[k] !== '') {
+      params.append(k, filters[k]);
+    }
+  });
+  const url = `${API_BASE}/employees.php${params.toString() ? '?' + params.toString() : ''}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to fetch employees');
+  return res.json();
+}
+
+export async function createEmployee(data) {
+  const res = await fetch(`${API_BASE}/employees.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to create employee');
+  return json;
+}
+
+export async function updateEmployee(data) {
+  const res = await fetch(`${API_BASE}/employees.php`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update employee');
+  return json;
+}
+
+export async function deleteEmployee(id) {
+  const res = await fetch(`${API_BASE}/employees.php?id=${id}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to deactivate employee');
+  return json;
+}
+
+export async function loginEmployee(username, password) {
+  const res = await fetch(`${API_BASE}/employees.php?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Authentication failed');
+  return json;
 }
 
 export async function scanRfidTag(data) {
@@ -336,3 +425,21 @@ export async function updateSiteDeficiency(data) {
   if (!res.ok) throw new Error(json.message || 'Failed to update site deficiency');
   return json;
 }
+
+export async function uploadServiceAttachment(file, meta = {}) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (meta.complaint_id) formData.append('complaint_id', meta.complaint_id);
+  if (meta.equipment_id) formData.append('equipment_id', meta.equipment_id);
+  if (meta.document_type) formData.append('document_type', meta.document_type);
+  if (meta.file_title) formData.append('file_title', meta.file_title);
+
+  const res = await fetch(`${API_BASE}/upload_attachment.php`, {
+    method: 'POST',
+    body: formData
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'File upload failed');
+  return json;
+}
+

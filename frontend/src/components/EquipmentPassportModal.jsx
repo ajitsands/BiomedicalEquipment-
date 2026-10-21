@@ -96,6 +96,7 @@ export default function EquipmentPassportModal({
 
   const handlePrint = (mode = 'passport') => {
     setPrintMode(mode);
+    window.focus();
     setTimeout(() => {
       window.print();
     }, 150);

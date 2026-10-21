@@ -7,12 +7,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 try {
     $equipmentId = !empty($_POST['equipment_id']) ? (int)$_POST['equipment_id'] : 0;
-    if (!$equipmentId) {
-        jsonError('equipment_id is required');
-    }
-
-    $docType = !empty($_POST['document_type']) ? $_POST['document_type'] : 'User Manual';
-    $fileTitle = !empty($_POST['file_title']) ? trim($_POST['file_title']) : 'Equipment Document';
+    $complaintId = !empty($_POST['complaint_id']) ? (int)$_POST['complaint_id'] : 0;
+    $docType = !empty($_POST['document_type']) ? $_POST['document_type'] : 'Service Report';
+    $fileTitle = !empty($_POST['file_title']) ? trim($_POST['file_title']) : 'Service Report Attachment';
 
     $uploadDir = __DIR__ . '/../uploads/';
     if (!is_dir($uploadDir)) {
@@ -21,7 +18,7 @@ try {
 
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
         // Fallback for demo or file simulation if text upload
-        $fileName = 'document_' . time() . '.pdf';
+        $fileName = 'service_report_' . time() . '.pdf';
         $filePath = '/uploads/' . $fileName;
         $fileSize = 1024;
     } else {
@@ -40,22 +37,34 @@ try {
         $fileSize = round($file['size'] / 1024);
     }
 
-    $stmt = $pdo->prepare("INSERT INTO equipment_attachments (equipment_id, document_type, file_title, file_name, file_path, file_size_kb) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([
-        $equipmentId,
-        $docType,
-        $fileTitle,
-        $fileName,
-        $filePath,
-        $fileSize
-    ]);
+    $insertedId = null;
+    if ($equipmentId > 0) {
+        $stmt = $pdo->prepare("INSERT INTO equipment_attachments (equipment_id, document_type, file_title, file_name, file_path, file_size_kb) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $equipmentId,
+            $docType,
+            $fileTitle,
+            $fileName,
+            $filePath,
+            $fileSize
+        ]);
+        $insertedId = $pdo->lastInsertId();
+    }
+
+    // If complaintId provided, update complaint's service attachment
+    if ($complaintId > 0) {
+        $stmtComp = $pdo->prepare("UPDATE complaints SET service_attachment_url = ?, service_attachment_name = ? WHERE id = ?");
+        $stmtComp->execute([$filePath, $originalName ?? $fileName, $complaintId]);
+    }
 
     jsonResponse([
         'status' => 'success',
         'message' => 'Document attachment uploaded successfully',
-        'id' => $pdo->lastInsertId(),
+        'id' => $insertedId,
         'file_name' => $fileName,
-        'file_path' => $filePath
+        'original_name' => $originalName ?? $fileName,
+        'file_path' => $filePath,
+        'file_size_kb' => $fileSize
     ], 201);
 } catch (Exception $e) {
     jsonError('Failed to upload document: ' . $e->getMessage(), 500);

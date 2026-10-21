@@ -27,6 +27,9 @@ import SiteDeficiencyModal from './components/SiteDeficiencyModal';
 import SiteCertificateModal from './components/SiteCertificateModal';
 import EditSiteAuditModal from './components/EditSiteAuditModal';
 import DepartmentsModal from './components/DepartmentsModal';
+import PartnersModal from './components/PartnersModal';
+import EmployeesModal from './components/EmployeesModal';
+import UserLoginModal from './components/UserLoginModal';
 
 import { fetchDashboardStats } from './services/api';
 
@@ -61,6 +64,9 @@ export default function App() {
   const [isBookComplaintOpen, setIsBookComplaintOpen] = useState(false);
   const [isNewEquipmentOpen, setIsNewEquipmentOpen] = useState(false);
   const [isDepartmentsOpen, setIsDepartmentsOpen] = useState(false);
+  const [isPartnersOpen, setIsPartnersOpen] = useState(false);
+  const [isEmployeesOpen, setIsEmployeesOpen] = useState(false);
+  const [isUserLoginOpen, setIsUserLoginOpen] = useState(false);
   const [isRfidScanOpen, setIsRfidScanOpen] = useState(false);
   const [isSandsSupportOpen, setIsSandsSupportOpen] = useState(false);
   const [isComplianceOpen, setIsComplianceOpen] = useState(false);
@@ -151,6 +157,9 @@ export default function App() {
         onOpenBookComplaint={() => handleOpenBookComplaint(null)}
         onOpenNewEquipment={() => setIsNewEquipmentOpen(true)}
         onOpenDepartments={() => setIsDepartmentsOpen(true)}
+        onOpenPartners={() => setIsPartnersOpen(true)}
+        onOpenEmployees={() => setIsEmployeesOpen(true)}
+        onOpenUserLogin={() => setIsUserLoginOpen(true)}
         onOpenSandsSupport={() => setIsSandsSupportOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeComplaintsCount={activeComplaintsCount}
@@ -286,6 +295,7 @@ export default function App() {
             setDataRefreshKey(prev => prev + 1);
           }}
           onOpenDepartments={() => setIsDepartmentsOpen(true)}
+          onOpenPartners={() => setIsPartnersOpen(true)}
           onShowToast={showToast}
         />
       )}
@@ -297,6 +307,43 @@ export default function App() {
           onShowToast={showToast}
           onDepartmentChanged={() => {
             setDataRefreshKey(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Master Directory: Vendors, Contractors, and Suppliers */}
+      {isPartnersOpen && (
+        <PartnersModal
+          isOpen={isPartnersOpen}
+          onClose={() => setIsPartnersOpen(false)}
+          onShowToast={showToast}
+          onPartnerChanged={() => {
+            setDataRefreshKey(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Master Directory: Employees, Roles, Usernames & Passwords */}
+      {isEmployeesOpen && (
+        <EmployeesModal
+          isOpen={isEmployeesOpen}
+          onClose={() => setIsEmployeesOpen(false)}
+          onShowToast={showToast}
+          onEmployeeChanged={() => {
+            setDataRefreshKey(prev => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Staff Switcher & Quick Password Login Dialog */}
+      {isUserLoginOpen && (
+        <UserLoginModal
+          isOpen={isUserLoginOpen}
+          onClose={() => setIsUserLoginOpen(false)}
+          onShowToast={showToast}
+          onOpenEmployeesMaster={() => {
+            setIsUserLoginOpen(false);
+            setIsEmployeesOpen(true);
           }}
         />
       )}

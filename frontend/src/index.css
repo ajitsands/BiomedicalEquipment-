@@ -1292,11 +1292,25 @@ input, select, textarea {
 
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 8mm 10mm 8mm 10mm;
+    size: A4 landscape;
+    margin: 6mm 8mm 6mm 8mm;
   }
 
-  body, html {
+  /* Reset all root containers from flexbox / fixed height to natural block layout */
+  html, 
+  body, 
+  #root, 
+  .app-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
     background: #ffffff !important;
     color: #0f172a !important;
     margin: 0 !important;
@@ -1306,17 +1320,43 @@ input, select, textarea {
     print-color-adjust: exact !important;
   }
 
-  /* Completely hide all screen UI, headers, footers, toasts, backdrop */
+  /* Completely hide all screen-only UI, headers, footers, toasts, dialog controls */
   .navbar-header,
   .header-menu-bar,
-  .main-content,
   .app-footer,
   .modal-header-bar,
   .modal-footer-bar,
   .tabs-nav,
   .btn,
   .toast-container,
-  .screen-only-passport {
+  .screen-only-passport,
+  .screen-only-reports,
+  .no-print {
+    display: none !important;
+  }
+
+  /* When printing from main content (e.g. ReportsView) */
+  .main-content {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  /* When a modal is open during print, hide underlying main content */
+  body.modal-open .main-content,
+  body:has(.modal-overlay) .main-content {
+    display: none !important;
+  }
+
+  /* Hide modal overlay if no modal is active */
+  body:not(.modal-open):not(:has(.modal-overlay)) .modal-overlay {
     display: none !important;
   }
 
@@ -1331,6 +1371,7 @@ input, select, textarea {
     display: block !important;
     width: 100% !important;
     height: auto !important;
+    overflow: visible !important;
   }
 
   .modal-content-card {
@@ -1352,6 +1393,20 @@ input, select, textarea {
     overflow: visible !important;
     max-height: none !important;
     padding: 0 !important;
+  }
+
+  /* Executive Printable Sheet (ReportsView Lifecycle Dossier) */
+  .printable-sheet {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1.5px solid #0f172a !important;
+    box-shadow: none !important;
+    padding: 20px 24px !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
   }
 
   /* Show the dedicated printable asset passport or label */
@@ -1379,6 +1434,37 @@ input, select, textarea {
     background: #ffffff;
     page-break-inside: avoid;
   }
+
+  /* Table and section page break optimization */
+  table {
+    page-break-inside: auto;
+    break-inside: auto;
+    width: 100% !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Landscape Medical Equipment Lifecycle Certificate */
+  .reports-certificate-landscape {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 2.5px solid #0f172a !important;
+    border-radius: 8px !important;
+    padding: 12px 18px !important;
+    page-break-inside: avoid !important;
+    margin: 0 auto !important;
+  }
 }
 
 /* Keyframe Animations */
@@ -1401,3 +1487,168 @@ input, select, textarea {
   from { opacity: 0; transform: translateX(30px); }
   to { opacity: 1; transform: translateX(0); }
 }
+
+/* =========================================================
+   MASTERS DROPDOWN MENU
+   ========================================================= */
+.masters-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.btn-masters-menu {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%);
+  border: 1px solid rgba(2, 132, 199, 0.35);
+  color: var(--text-primary);
+}
+
+.btn-masters-menu:hover,
+.btn-masters-menu.active {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.16) 0%, rgba(236, 72, 153, 0.16) 100%);
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.18);
+  transform: translateY(-1px);
+}
+
+.btn-masters-menu .masters-badge {
+  background: linear-gradient(135deg, #0284c7 0%, #db2777 100%);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  margin-left: 2px;
+}
+
+.masters-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.2), 0 4px 16px -2px rgba(2, 132, 199, 0.12);
+  z-index: 1050;
+  padding: 10px;
+  animation: dropdownFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.masters-user-header {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(5, 150, 105, 0.08) 100%);
+  border: 1px solid rgba(2, 132, 199, 0.22);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.masters-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.masters-user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7 0%, #059669 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.masters-section-title {
+  font-size: 0.70rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 6px 8px 4px;
+}
+
+.masters-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.masters-menu-item:hover {
+  background-color: var(--bg-surface-hover);
+  border-color: var(--border-color);
+  transform: translateX(2px);
+}
+
+.masters-item-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.masters-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.masters-item-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.masters-item-desc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+

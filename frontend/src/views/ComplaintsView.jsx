@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import DataTable from '../components/DataTable';
 import Modal from '../components/Modal';
+import SelectSearch from '../components/SelectSearch';
 import { 
   fetchComplaints, 
-  updateComplaint 
+  updateComplaint,
+  fetchVendors,
+  uploadServiceAttachment
 } from '../services/api';
 import { 
   AlertOctagon, 
@@ -14,7 +17,14 @@ import {
   Wrench, 
   DollarSign, 
   Plus, 
-  FileText 
+  FileText,
+  Building,
+  Paperclip,
+  UploadCloud,
+  ExternalLink,
+  ShieldCheck,
+  Trash2,
+  FileCheck
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
@@ -26,6 +36,7 @@ export default function ComplaintsView({
 }) {
   const { formatCurrency, formatDate, formatDateTime, settings } = useSettings();
   const [complaints, setComplaints] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Status Filter
@@ -36,6 +47,11 @@ export default function ComplaintsView({
   const [activeTicket, setActiveTicket] = useState(null);
   const [newStatus, setNewStatus] = useState('Repaired & Verified');
   const [assignedEngineer, setAssignedEngineer] = useState('Eng. Hassan Al-Majed (SaNDS Lab)');
+  const [servicedByType, setServicedByType] = useState('In-House Biomedical Engineering');
+  const [servicedByVendorId, setServicedByVendorId] = useState('');
+  const [serviceAttachmentUrl, setServiceAttachmentUrl] = useState('');
+  const [serviceAttachmentName, setServiceAttachmentName] = useState('');
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [actionTaken, setActionTaken] = useState('');
   const [rootCause, setRootCause] = useState('');
   const [replacedParts, setReplacedParts] = useState('');
@@ -45,7 +61,17 @@ export default function ComplaintsView({
 
   useEffect(() => {
     loadComplaints();
+    loadVendors();
   }, [statusFilter, priorityFilter, refreshKey]);
+
+  const loadVendors = async () => {
+    try {
+      const res = await fetchVendors('ALL');
+      setVendors(res.data || []);
+    } catch (err) {
+      console.error('Failed to load vendors', err);
+    }
+  };
 
   const loadComplaints = async () => {
     try {
@@ -66,11 +92,45 @@ export default function ComplaintsView({
     setActiveTicket(ticket);
     setNewStatus(ticket.status === 'Open' ? 'In Progress' : 'Repaired & Verified');
     setAssignedEngineer(ticket.assigned_engineer || 'Eng. Hassan Al-Majed (SaNDS Lab)');
+    setServicedByType(ticket.serviced_by_type || 'In-House Biomedical Engineering');
+    setServicedByVendorId(ticket.serviced_by_vendor_id ? String(ticket.serviced_by_vendor_id) : '');
+    setServiceAttachmentUrl(ticket.service_attachment_url || '');
+    setServiceAttachmentName(ticket.service_attachment_name || '');
     setActionTaken(ticket.action_taken || '');
     setRootCause(ticket.root_cause || '');
     setReplacedParts(ticket.replaced_parts || '');
     setDowntimeHours(ticket.downtime_hours || 2.0);
     setRepairCost(ticket.repair_cost || 0);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploadingAttachment(true);
+      const res = await uploadServiceAttachment(file, {
+        complaint_id: activeTicket?.id,
+        document_type: 'Service Completion Report',
+        file_title: `${activeTicket?.ticket_number || 'Complaint'} - Service Report`
+      });
+
+      setServiceAttachmentUrl(res.file_path);
+      setServiceAttachmentName(res.original_name || file.name);
+      onShowToast({
+        type: 'success',
+        title: 'Document Attached',
+        message: `${file.name} uploaded successfully.`
+      });
+    } catch (err) {
+      onShowToast({
+        type: 'error',
+        title: 'Upload Failed',
+        message: err.message || 'Could not upload attachment'
+      });
+    } finally {
+      setUploadingAttachment(false);
+    }
   };
 
   const handleUpdateTicket = async (e) => {
@@ -83,6 +143,10 @@ export default function ComplaintsView({
         id: activeTicket.id,
         status: newStatus,
         assigned_engineer: assignedEngineer,
+        serviced_by_type: servicedByType,
+        serviced_by_vendor_id: servicedByVendorId ? Number(servicedByVendorId) : null,
+        service_attachment_url: serviceAttachmentUrl,
+        service_attachment_name: serviceAttachmentName,
         action_taken: actionTaken,
         root_cause: rootCause,
         replaced_parts: replacedParts,
@@ -176,12 +240,23 @@ export default function ComplaintsView({
     },
     {
       id: 'reported_at',
-      header: 'Reported When',
+      header: 'Reported When & By',
       accessor: 'reported_at',
       render: (row) => (
         <div>
           <div style={{ fontSize: '0.82rem' }}>{formatDateTime(row.reported_at)}</div>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>by {row.booked_by_name}</div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            by <strong>{row.booked_by_name}</strong>
+          </div>
+          {row.booked_by_employee_code ? (
+            <span className="badge badge-info" style={{ fontSize: '0.70rem', marginTop: '2px', padding: '1px 6px', display: 'inline-block' }}>
+              Staff #{row.booked_by_employee_code}
+            </span>
+          ) : row.booked_by_username ? (
+            <span className="badge badge-neutral" style={{ fontSize: '0.70rem', marginTop: '2px', padding: '1px 6px', display: 'inline-block' }}>
+              @{row.booked_by_username}
+            </span>
+          ) : null}
         </div>
       )
     },
@@ -200,14 +275,36 @@ export default function ComplaintsView({
     },
     {
       id: 'engineer',
-      header: 'Assigned Engineer',
+      header: 'Serviced By / Engineer',
       accessor: 'assigned_engineer',
       render: (row) => (
-        row.assigned_engineer ? (
-          <div style={{ fontSize: '0.84rem' }}>{row.assigned_engineer}</div>
-        ) : (
-          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Unassigned</span>
-        )
+        <div>
+          <div style={{ fontSize: '0.84rem', fontWeight: 500 }}>
+            {row.assigned_engineer || <span style={{ color: 'var(--text-muted)' }}>Unassigned</span>}
+          </div>
+          {row.serviced_by_type && row.serviced_by_type !== 'In-House Biomedical Engineering' && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Building size={12} />
+              <span>{row.serviced_by_vendor_name || row.serviced_by_type}</span>
+            </div>
+          )}
+          {row.service_attachment_url && (
+            <div style={{ marginTop: '4px' }}>
+              <a
+                href={row.service_attachment_url.startsWith('http') ? row.service_attachment_url : `http://127.0.0.1:8000${row.service_attachment_url}`}
+                target="_blank"
+                rel="noreferrer"
+                className="badge badge-success"
+                style={{ fontSize: '0.70rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px', cursor: 'pointer' }}
+                title={row.service_attachment_name || 'Service Report'}
+              >
+                <Paperclip size={10} />
+                <span>Service Report</span>
+                <ExternalLink size={10} />
+              </a>
+            </div>
+          )}
+        </div>
       )
     },
     {
@@ -226,6 +323,13 @@ export default function ComplaintsView({
       )
     }
   ];
+
+  const partnerOptions = vendors.map(v => ({
+    value: v.id,
+    label: `${v.name} (${v.vendor_type || 'Vendor'})`,
+    subLabel: `Contact: ${v.contact_person || 'N/A'} • ${v.phone || v.email || 'No phone'}`,
+    ...v
+  }));
 
   return (
     <div>
@@ -373,6 +477,157 @@ export default function ComplaintsView({
                   onChange={(e) => setAssignedEngineer(e.target.value)}
                 />
               </div>
+            </div>
+
+            {/* Servicing Responsibility (In-House / External Contractor / OEM Vendor / Warranty Service) */}
+            <div style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px 14px',
+              marginBottom: '16px'
+            }}>
+              <label className="form-label" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Building size={16} color="var(--color-primary)" />
+                <strong>Servicing Responsibility / Provider Type</strong>
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                {[
+                  { id: 'In-House Biomedical Engineering', label: 'In-House BME Team' },
+                  { id: 'External Contractor', label: 'External Contractor' },
+                  { id: 'OEM Vendor', label: 'OEM Vendor' },
+                  { id: 'Warranty Service Provider', label: 'Warranty Service' }
+                ].map(item => (
+                  <label 
+                    key={item.id} 
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: servicedByType === item.id ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                      backgroundColor: servicedByType === item.id ? 'var(--color-primary-subtle, rgba(37, 99, 235, 0.08))' : 'var(--bg-surface)',
+                      cursor: 'pointer',
+                      fontSize: '0.82rem',
+                      fontWeight: servicedByType === item.id ? 600 : 400
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="servicedByType"
+                      value={item.id}
+                      checked={servicedByType === item.id}
+                      onChange={() => {
+                        setServicedByType(item.id);
+                        if (item.id === 'In-House Biomedical Engineering') {
+                          setServicedByVendorId('');
+                        }
+                      }}
+                    />
+                    <span>{item.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Show Partner Master SelectSearch if Contractor, Vendor, or Warranty */}
+              {servicedByType !== 'In-House Biomedical Engineering' && (
+                <div className="form-group" style={{ marginBottom: '6px' }}>
+                  <label className="form-label" style={{ fontSize: '0.80rem' }}>
+                    Select {servicedByType} (Partners Master • Select2 Search)
+                  </label>
+                  <SelectSearch
+                    options={partnerOptions}
+                    value={servicedByVendorId}
+                    onChange={(val) => setServicedByVendorId(val)}
+                    placeholder="Search contractor, vendor, or supplier by name or contact..."
+                    subLabelKey="subLabel"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Optional Document / Attachment Upload for Service Reports */}
+            <div style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px dashed var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px 14px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Paperclip size={15} color="var(--color-primary)" />
+                  <strong>Service Report / Attachment (Optional)</strong>
+                </label>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  PDF, Images, Calibration Certificates, Invoices
+                </span>
+              </div>
+
+              {serviceAttachmentUrl ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  backgroundColor: 'var(--color-success-subtle, rgba(16, 185, 129, 0.1))',
+                  border: '1px solid var(--color-success)',
+                  borderRadius: 'var(--radius-sm)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <FileCheck size={18} color="var(--color-success)" />
+                    <span style={{ fontSize: '0.84rem', fontWeight: 600, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      {serviceAttachmentName || 'Service_Report.pdf'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <a
+                      href={serviceAttachmentUrl.startsWith('http') ? serviceAttachmentUrl : `http://127.0.0.1:8000${serviceAttachmentUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '3px 8px', fontSize: '0.75rem', textDecoration: 'none' }}
+                    >
+                      <ExternalLink size={12} /> View
+                    </a>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                      onClick={() => {
+                        setServiceAttachmentUrl('');
+                        setServiceAttachmentName('');
+                      }}
+                      title="Remove attachment"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    id="serviceReportUpload"
+                    style={{ display: 'none' }}
+                    onChange={handleFileUpload}
+                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                  />
+                  <label
+                    htmlFor="serviceReportUpload"
+                    className="btn btn-secondary btn-sm"
+                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <UploadCloud size={15} />
+                    {uploadingAttachment ? 'Uploading Document...' : 'Attach Field Service Report / Invoice'}
+                  </label>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    Optional • Not mandatory
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="form-group">

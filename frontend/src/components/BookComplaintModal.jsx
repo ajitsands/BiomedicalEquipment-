@@ -5,8 +5,10 @@ import {
   bookComplaint, 
   fetchEquipments, 
   fetchDepartments, 
-  fetchComplaintCodes 
+  fetchComplaintCodes,
+  fetchEmployees
 } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   AlertOctagon, 
   AlertTriangle, 
@@ -15,7 +17,9 @@ import {
   User, 
   Phone, 
   Layers, 
-  Tag 
+  Tag,
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 
 export default function BookComplaintModal({
@@ -25,15 +29,18 @@ export default function BookComplaintModal({
   onSuccess,
   onShowToast
 }) {
+  const { currentUser } = useAuth();
   const [equipments, setEquipments] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [complaintCodes, setComplaintCodes] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [roomOrBed, setRoomOrBed] = useState('');
-  const [bookedByName, setBookedByName] = useState('Staff Nurse Layla');
-  const [bookedByRole, setBookedByRole] = useState('Staff Nurse In-Charge');
-  const [bookedByPhone, setBookedByPhone] = useState('+973-3881-2299');
+  const [bookedByEmployeeId, setBookedByEmployeeId] = useState('');
+  const [bookedByName, setBookedByName] = useState('');
+  const [bookedByRole, setBookedByRole] = useState('');
+  const [bookedByPhone, setBookedByPhone] = useState('');
   const [selectedCode, setSelectedCode] = useState('');
   const [category, setCategory] = useState('Power / start-up');
   const [priority, setPriority] = useState('Critical - Life Support');
@@ -46,8 +53,17 @@ export default function BookComplaintModal({
     if (isOpen) {
       setErrors({});
       loadData();
+      if (currentUser) {
+        setBookedByEmployeeId(currentUser.id);
+        setBookedByName(currentUser.full_name);
+        setBookedByRole(currentUser.designation || currentUser.role);
+        setBookedByPhone(currentUser.phone || '');
+        if (currentUser.department_id && !departmentId) {
+          setDepartmentId(currentUser.department_id);
+        }
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, currentUser]);
 
   useEffect(() => {
     if (preselectedEquipment) {
@@ -63,14 +79,16 @@ export default function BookComplaintModal({
   const loadData = async () => {
     try {
       setLoading(true);
-      const [eqRes, deptRes, codeRes] = await Promise.all([
+      const [eqRes, deptRes, codeRes, empRes] = await Promise.all([
         fetchEquipments(),
         fetchDepartments(),
-        fetchComplaintCodes()
+        fetchComplaintCodes(),
+        fetchEmployees()
       ]);
       setEquipments(eqRes.data || []);
       setDepartments(deptRes.data || []);
       setComplaintCodes(codeRes.data || []);
+      setEmployees(empRes.data || []);
     } catch (err) {
       console.error('Error loading data', err);
     } finally {
@@ -89,6 +107,21 @@ export default function BookComplaintModal({
       if (opt.criticality?.includes('Critical')) {
         setPriority('Critical - Life Support');
       }
+    }
+  };
+
+  const handleEmployeeSelect = (val, opt) => {
+    setBookedByEmployeeId(val);
+    if (opt) {
+      setBookedByName(opt.full_name || opt.label);
+      setBookedByRole(opt.designation || opt.role || '');
+      setBookedByPhone(opt.phone || '');
+      if (opt.department_id && !departmentId) {
+        setDepartmentId(opt.department_id);
+      }
+    }
+    if (errors.bookedByName) {
+      setErrors(prev => ({ ...prev, bookedByName: null }));
     }
   };
 
@@ -125,7 +158,7 @@ export default function BookComplaintModal({
       newErrors.description = 'Please describe the problem symptoms';
     }
     if (!bookedByName || !bookedByName.trim()) {
-      newErrors.bookedByName = 'Please enter the reporter name';
+      newErrors.bookedByName = 'Please select or enter the reporter name';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -152,6 +185,7 @@ export default function BookComplaintModal({
         equipment_id: Number(selectedEquipmentId),
         department_id: departmentId ? Number(departmentId) : undefined,
         room_or_bed: roomOrBed,
+        booked_by_employee_id: bookedByEmployeeId ? Number(bookedByEmployeeId) : undefined,
         booked_by_name: bookedByName,
         booked_by_role: bookedByRole,
         booked_by_phone: bookedByPhone,
@@ -165,7 +199,7 @@ export default function BookComplaintModal({
       onShowToast({
         type: 'danger',
         title: 'Breakdown Ticket Booked',
-        message: `Ticket ${res.ticket_number} logged! Emergency alert dispatched to Biomedical Engineering team.`
+        message: `Ticket ${res.ticket_number} logged! Logged by ${bookedByName}. Emergency alert dispatched to Biomedical Engineering.`
       });
 
       setDescription('');
@@ -189,6 +223,13 @@ export default function BookComplaintModal({
     room_number: eq.room_number,
     bed_slot: eq.bed_slot,
     criticality: eq.criticality
+  }));
+
+  const employeeOptions = employees.map(emp => ({
+    value: emp.id,
+    label: `${emp.full_name} (${emp.employee_code || emp.username})`,
+    subLabel: `${emp.role} • ${emp.designation || 'Staff'} • ${emp.phone || 'No phone'} • Dept: ${emp.department_name || 'General'}`,
+    ...emp
   }));
 
   return (
@@ -324,45 +365,80 @@ export default function BookComplaintModal({
           </div>
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label className="form-label">Reported By Name <span className="required">*</span></label>
-            <input
-              type="text"
-              className={`form-control ${errors.bookedByName ? 'input-error' : ''}`}
-              value={bookedByName}
-              onChange={(e) => {
-                setBookedByName(e.target.value);
-                if (errors.bookedByName) setErrors(prev => ({ ...prev, bookedByName: null }));
-              }}
-              required
-            />
-            {errors.bookedByName && (
-              <div className="field-error-text">
-                <AlertTriangle size={13} />
-                <span>{errors.bookedByName}</span>
-              </div>
+        {/* Booked By / Staff Master Selector (Select2 Style) */}
+        <div style={{
+          backgroundColor: 'var(--color-bg-secondary)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <UserCheck size={16} color="var(--color-primary)" />
+              <strong>Booked / Reported By (Employee Master) <span className="required">*</span></strong>
+            </label>
+            {bookedByName && (
+              <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
+                Active Log: {bookedByName}
+              </span>
             )}
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Role / Designation</label>
-            <input
-              type="text"
-              className="form-control"
-              value={bookedByRole}
-              onChange={(e) => setBookedByRole(e.target.value)}
+          <div className="form-group" style={{ marginBottom: '10px' }}>
+            <SelectSearch
+              options={employeeOptions}
+              value={bookedByEmployeeId}
+              onChange={handleEmployeeSelect}
+              placeholder="Type staff name, employee code, or role to search..."
+              subLabelKey="subLabel"
+              hasError={Boolean(errors.bookedByName)}
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Contact Phone / Extension</label>
-            <input
-              type="text"
-              className="form-control"
-              value={bookedByPhone}
-              onChange={(e) => setBookedByPhone(e.target.value)}
-            />
+          <div className="form-row" style={{ marginBottom: 0 }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.78rem' }}>Reporter Name</label>
+              <input
+                type="text"
+                className={`form-control ${errors.bookedByName ? 'input-error' : ''}`}
+                value={bookedByName}
+                onChange={(e) => {
+                  setBookedByName(e.target.value);
+                  if (errors.bookedByName) setErrors(prev => ({ ...prev, bookedByName: null }));
+                }}
+                placeholder="Full Name"
+                required
+              />
+              {errors.bookedByName && (
+                <div className="field-error-text">
+                  <AlertTriangle size={13} />
+                  <span>{errors.bookedByName}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.78rem' }}>Role / Designation</label>
+              <input
+                type="text"
+                className="form-control"
+                value={bookedByRole}
+                onChange={(e) => setBookedByRole(e.target.value)}
+                placeholder="Designation"
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.78rem' }}>Contact Phone / Ext</label>
+              <input
+                type="text"
+                className="form-control"
+                value={bookedByPhone}
+                onChange={(e) => setBookedByPhone(e.target.value)}
+                placeholder="Phone / Extension"
+              />
+            </div>
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import SelectSearch from './SelectSearch';
 import { 
   createEquipment, 
   fetchEquipmentTypes, 
@@ -15,7 +16,8 @@ import {
   ShieldCheck, 
   Phone, 
   QrCode, 
-  Radio 
+  Radio,
+  Building
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
@@ -24,6 +26,7 @@ export default function NewEquipmentModal({
   onClose,
   onSuccess,
   onOpenDepartments,
+  onOpenPartners,
   onShowToast
 }) {
   const { settings } = useSettings();
@@ -157,6 +160,13 @@ export default function NewEquipmentModal({
   };
 
   if (!isOpen) return null;
+
+  const vendorOptions = vendors.map(v => ({
+    value: v.id,
+    label: `${v.name} (${v.vendor_type || 'Vendor'})`,
+    subLabel: `Hotline: ${v.emergency_hotline || v.phone || 'N/A'} • Contact: ${v.contact_person || 'N/A'} • ${v.city || ''}`,
+    ...v
+  }));
 
   return (
     <Modal
@@ -439,19 +449,42 @@ export default function NewEquipmentModal({
 
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Supplied By Vendor <span className="required">*</span></label>
-              <select
-                className="form-control"
-                name="vendor_id"
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Supplied By Vendor / Partner <span className="required">*</span></span>
+                {onOpenPartners && (
+                  <button
+                    type="button"
+                    onClick={onOpenPartners}
+                    style={{ 
+                      background: 'transparent', 
+                      border: 'none', 
+                      color: 'var(--color-primary)', 
+                      cursor: 'pointer', 
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                  >
+                    <Plus size={12} /> Manage Partners
+                  </button>
+                )}
+              </label>
+              <SelectSearch
+                options={vendorOptions}
                 value={formData.vendor_id}
-                onChange={handleChange}
-              >
-                {vendors.map(v => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} (Hotline: {v.emergency_hotline})
-                  </option>
-                ))}
-              </select>
+                onChange={(val, opt) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    vendor_id: val,
+                    emergency_phone: opt?.emergency_hotline || opt?.phone || prev.emergency_phone,
+                    vendor_service_email: opt?.email || prev.vendor_service_email
+                  }));
+                }}
+                placeholder="Search vendor or supplier by company name..."
+                subLabelKey="subLabel"
+              />
             </div>
 
             <div className="form-group">

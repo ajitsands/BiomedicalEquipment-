@@ -32,11 +32,15 @@ if ($method === 'GET') {
             c.*, 
             e.asset_id, e.name as equipment_name, e.brand, e.model_number, e.serial_number, e.rfid_tag_id, e.qr_code_token,
             d.name as department_name, d.code as department_code, d.floor as department_floor, d.building as department_building,
-            v.name as vendor_name, v.emergency_hotline as vendor_emergency_hotline
+            v.name as vendor_name, v.emergency_hotline as vendor_emergency_hotline,
+            emp.employee_code as booked_by_employee_code, emp.username as booked_by_username,
+            sv.name as serviced_by_vendor_name, sv.vendor_type as serviced_by_vendor_type, sv.phone as serviced_by_vendor_phone
         FROM complaints c
         JOIN equipments e ON c.equipment_id = e.id
         JOIN departments d ON c.department_id = d.id
-        JOIN vendors v ON e.vendor_id = v.id";
+        JOIN vendors v ON e.vendor_id = v.id
+        LEFT JOIN employees emp ON c.booked_by_employee_id = emp.id
+        LEFT JOIN vendors sv ON c.serviced_by_vendor_id = sv.id";
 
         if (!empty($where)) {
             $sql .= " WHERE " . implode(" AND ", $where);
@@ -84,17 +88,20 @@ if ($method === 'GET') {
 
         $pdo->beginTransaction();
 
+        $bookedByEmpId = !empty($input['booked_by_employee_id']) ? (int)$input['booked_by_employee_id'] : null;
+
         $sql = "INSERT INTO complaints (
-            ticket_number, equipment_id, booked_by_name, booked_by_role, booked_by_phone,
+            ticket_number, equipment_id, booked_by_name, booked_by_employee_id, booked_by_role, booked_by_phone,
             department_id, room_or_bed, complaint_category, priority, description,
             reported_at, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'Open')";
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'Open')";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $ticketNo,
             $equipmentId,
             trim($input['booked_by_name']),
+            $bookedByEmpId,
             $input['booked_by_role'] ?? 'Staff Nurse',
             $input['booked_by_phone'] ?? '+973-1789-4099',
             $departmentId,
@@ -138,7 +145,9 @@ if ($method === 'GET') {
         $fields = [
             'status', 'assigned_engineer', 'assigned_at', 'action_taken',
             'root_cause', 'replaced_parts', 'repair_cost', 'downtime_hours',
-            'resolved_at', 'closed_at', 'satisfaction_rating'
+            'resolved_at', 'closed_at', 'satisfaction_rating',
+            'serviced_by_type', 'serviced_by_vendor_id',
+            'service_attachment_url', 'service_attachment_name'
         ];
 
         $updates = [];

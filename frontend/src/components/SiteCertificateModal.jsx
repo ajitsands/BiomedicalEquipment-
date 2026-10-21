@@ -28,7 +28,10 @@ export default function SiteCertificateModal({
   if (!isOpen || !inspection) return null;
 
   const handlePrint = () => {
-    window.print();
+    window.focus();
+    setTimeout(() => {
+      window.print();
+    }, 50);
   };
 
   const readinessScore = certificate?.approved_readiness_score || inspection?.readiness_percentage || 100.0;
@@ -45,7 +48,7 @@ export default function SiteCertificateModal({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         
         {/* Top Action Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '1.4rem' }}>{inspection.country_flag || '🌐'}</span>
             <div>

@@ -71,8 +71,23 @@ export default function ReportsView({
     }
   };
 
+  const [orientation, setOrientation] = useState('landscape'); // 'landscape' | 'portrait'
+
   const handlePrint = () => {
-    window.print();
+    const styleId = 'dynamic-print-orientation';
+    let styleEl = document.getElementById(styleId);
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+    const margin = orientation === 'landscape' ? '6mm 8mm 6mm 8mm' : '8mm 10mm 8mm 10mm';
+    styleEl.innerHTML = `@media print { @page { size: A4 ${orientation} !important; margin: ${margin} !important; } }`;
+
+    window.focus();
+    setTimeout(() => {
+      window.print();
+    }, 50);
   };
 
   const equipmentOptions = equipments.map(e => ({
@@ -88,7 +103,7 @@ export default function ReportsView({
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '22px' }}>
+      <div className="no-print screen-only-reports" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '22px' }}>
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Biomedical Equipment Lifecycle History & Reports</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
@@ -96,7 +111,29 @@ export default function ReportsView({
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Orientation Selector: Landscape (Default) vs Portrait */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '3px' }}>
+            <button
+              type="button"
+              className={`btn btn-sm ${orientation === 'landscape' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ fontSize: '0.78rem', padding: '4px 10px', borderRadius: '4px', height: 'auto', fontWeight: 600 }}
+              onClick={() => setOrientation('landscape')}
+              title="Wide Landscape Layout - Ideal for multi-column tables, technical PM logs & signatures"
+            >
+              📄 Landscape (Wide)
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${orientation === 'portrait' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ fontSize: '0.78rem', padding: '4px 10px', borderRadius: '4px', height: 'auto', fontWeight: 600 }}
+              onClick={() => setOrientation('portrait')}
+              title="Standard Portrait Layout"
+            >
+              📑 Portrait
+            </button>
+          </div>
+
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -104,13 +141,13 @@ export default function ReportsView({
             disabled={!reportData}
           >
             <Printer size={15} />
-            Print / Save as PDF
+            Print / Save as PDF ({orientation === 'landscape' ? 'Landscape' : 'Portrait'})
           </button>
         </div>
       </div>
 
       {/* Equipment Selector Toolbar */}
-      <div style={{ 
+      <div className="no-print screen-only-reports" style={{ 
         display: 'flex', 
         alignItems: 'center', 
         gap: '14px', 
