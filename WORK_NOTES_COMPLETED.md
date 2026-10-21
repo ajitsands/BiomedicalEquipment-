@@ -165,3 +165,120 @@ stop_localhost_2020.bat
    - **Logo Upload**: Image upload input supporting PNG (transparent), SVG, JPEG, and WebP files up to 4MB, with live multi-card previews (light & dark cards) and 1-click restore to the official SaNDS Lab vector logo.
    - **Backend Storage**: [`backend/api/settings.php`](file:///e:/medical_equpments/backend/api/settings.php) supports saving `company_name` and `company_logo` via JSON or `multipart/form-data` file upload into `backend/uploads/`.
    - **Reactive Dynamic Branding**: Once updated in Settings, the new Company Name and Logo instantly render across the top Navbar, Footer, official Asset Passports, and PDF reports.
+
+---
+
+## 10. Reports View Print Blank Screen Fix & Landscape Orientation Optimization
+
+1. **Resolution of Print Blank Screen Bug**:
+   - Investigated and resolved an issue where clicking the "Print" button on [`ReportsView.jsx`](file:///e:/medical_equpments/frontend/src/views/ReportsView.jsx) rendered a blank white page in browser print preview.
+   - Root cause: CSS rule `.navbar-header { display: none !important; }` in `@media print` combined with unparented print wrappers caused elements to collapse.
+   - Added dedicated `@media print` styling rules in [`index.css`](file:///e:/medical_equpments/frontend/src/index.css) ensuring `.reports-view`, tables, KPI summaries, and lifecycle cards remain fully visible with proper pagination during printing.
+
+2. **Landscape Print Optimization (`@page { size: landscape; }`)**:
+   - Upgraded `@page` orientation to **Landscape** (`A4 landscape`) with `margin: 12mm 15mm`.
+   - Expanded table headers and data columns horizontally to display serial numbers, departments, compliance ratings, and inspection dates with zero line-wrapping or truncation.
+   - Styled **Landscape Medical Equipment Lifecycle Dossier** (`.reports-certificate-landscape`) with formal dark clinical borders, institutional verification stamps, and dual sign-off blocks for the Lead Biomedical Engineer and Hospital Clinical Director.
+
+---
+
+## 11. Master Directories for Vendors, Contractors, Suppliers & Hospital Employees
+
+1. **Database Schema Expansion ([`backend/database/create_masters_and_auth.php`](file:///e:/medical_equpments/backend/database/create_masters_and_auth.php))**:
+   - **`vendors` Table**:
+     - Added `vendor_type` ENUM (`'Vendor / OEM'`, `'Contractor'`, `'Supplier'`, `'Authorized Service Provider'`).
+     - Added `tax_id` (CR / Commercial Registration / VAT Tax ID) and `is_active`.
+     - Seeded contractors (e.g., *Gulf Biomedical Services*, *MedServe Technologies*, *Arabian Healthcare Logistics*) and suppliers (e.g., *Al-Amal Medical Supplies*, *Middle East Bio-Sensors*, *Bahrain Scientific Company*).
+   - **`employees` Table**:
+     - Created relational master table: `id`, `employee_code` (e.g. `EMP-1001`), `full_name`, `username` (unique), `password_hash`, `plain_password_hint`, `role`, `department_id`, `designation`, `phone`, `email`, `is_active`, `created_at`, `updated_at`.
+     - Pre-seeded 6 clinical and engineering staff:
+       - `hassan.bme` (Eng. Hassan Al-Majed, Lead Biomedical Engineer)
+       - `reem.bme` (Eng. Reem Al-Khalifa, Senior Clinical Engineer)
+       - `tariq.tech` (Tariq Mansoor, BME Maintenance Specialist)
+       - `layla.nurse` (Staff Nurse Layla, ICU Charge Nurse)
+       - `sarah.doc` (Dr. Sarah Al-Doseri, Head of Critical Care)
+       - `admin` (System Administrator)
+   - **`complaints` Table**:
+     - Added `booked_by_employee_id`, `serviced_by_type`, `serviced_by_vendor_id`, `service_attachment_url`, and `service_attachment_name`.
+
+2. **Backend REST APIs**:
+   - **[`backend/api/vendors.php`](file:///e:/medical_equpments/backend/api/vendors.php)**: Enhanced with category filtering (`type=Contractor`, `type=Supplier`, `type=Vendor / OEM`, `type=ALL`), and full CRUD (Create, Read, Update, Delete).
+   - **[`backend/api/employees.php`](file:///e:/medical_equpments/backend/api/employees.php)**: Full employee lifecycle management including BCrypt password encryption, credential authentication (`action=login`), and department joins.
+
+3. **Master Directory UI Modals**:
+   - **[`PartnersModal.jsx`](file:///e:/medical_equpments/frontend/src/components/PartnersModal.jsx)**: Full directory management for OEM Vendors, Maintenance Contractors, and Medical Suppliers with tabbed category filtering, search, hotline, and CR/Tax ID tracking.
+   - **[`EmployeesModal.jsx`](file:///e:/medical_equpments/frontend/src/components/EmployeesModal.jsx)**: Comprehensive staff directory with username & password management, show/hide password toggle, auto-generated secure passwords, role assignments, and active complaint booking counters.
+
+---
+
+## 12. Select2-Style Searchable Dropdowns Across CMMS Forms
+
+1. **Select2 Search Component ([`SelectSearch.jsx`](file:///e:/medical_equpments/frontend/src/components/SelectSearch.jsx))**:
+   - Reusable search-as-you-type dropdown component with fuzzy search, multi-line sub-labels, keyboard navigation, clear buttons, and clean scroll containers.
+
+2. **Integration Across Forms**:
+   - **Rapid Complaint Booking ([`BookComplaintModal.jsx`](file:///e:/medical_equpments/frontend/src/components/BookComplaintModal.jsx))**:
+     - Replaced text fields with Select2 searchable employee selector.
+     - Searching by staff name, employee code, username, or role auto-fills full name, designation, extension phone, and department.
+   - **Equipment Master Registration ([`NewEquipmentModal.jsx`](file:///e:/medical_equpments/frontend/src/components/NewEquipmentModal.jsx))**:
+     - Converted vendor selection to Select2 searchable input with instant partner hotline preview and a shortcut button to manage partners.
+   - **Corrective Maintenance Ticket Resolution ([`ComplaintsView.jsx`](file:///e:/medical_equpments/frontend/src/views/ComplaintsView.jsx))**:
+     - Select2 searchable dropdown to select the assigned contractor, OEM vendor, or warranty service company upon completing repairs.
+
+---
+
+## 13. Employee Credentials, BCrypt Authentication & Complaint Booking Audit Log
+
+1. **Authentication Context & User Switcher**:
+   - Created **[`AuthContext.jsx`](file:///e:/medical_equpments/frontend/src/context/AuthContext.jsx)** providing `currentUser`, `loginWithCredentials`, and `switchUser` across the entire application.
+   - Created **[`UserLoginModal.jsx`](file:///e:/medical_equpments/frontend/src/components/UserLoginModal.jsx)**: 1-click staff profile switcher and password login dialog.
+
+2. **Booking Audit & Traceability**:
+   - Complaints logged via `BookComplaintModal` save `booked_by_employee_id`.
+   - In [`ComplaintsView.jsx`](file:///e:/medical_equpments/frontend/src/views/ComplaintsView.jsx), every work ticket displays who booked the complaint, timestamp, and a verified staff badge (`Staff #EMP-XXXX` or `@username`).
+
+---
+
+## 14. Contractor / Vendor Servicing & Service Report Document Attachments
+
+1. **Servicing Responsibility Workflow**:
+   - In [`ComplaintsView.jsx`](file:///e:/medical_equpments/frontend/src/views/ComplaintsView.jsx) resolution modal, added **Servicing Responsibility / Provider Type**:
+     - `In-House Biomedical Engineering`
+     - `External Contractor`
+     - `OEM Vendor`
+     - `Warranty Service Provider`
+   - Dynamically loads contractor/vendor directory options from the Partners Master.
+
+2. **Optional Service Document Attachment**:
+   - Added document attachment upload supporting PDF service reports, calibration certificates, field service receipts, and vendor invoices.
+   - Handled by [`backend/api/upload_attachment.php`](file:///e:/medical_equpments/backend/api/upload_attachment.php) and saved to `/uploads/`.
+   - Displays uploaded file preview with view/download and removal options.
+   - In the complaints table, tickets with attached service reports display a clickable green badge: `📎 Service Report`.
+
+---
+
+## 15. Unified "Masters" Space-Saving Dropdown Menu in Top Navigation
+
+1. **Header Space Consolidation ([`Navbar.jsx`](file:///e:/medical_equpments/frontend/src/components/Navbar.jsx) & [`index.css`](file:///e:/medical_equpments/frontend/src/index.css))**:
+   - Replaced 5 separate navbar buttons with a single unified, compact dropdown button: **`[ 📦 Masters (5) ▾ ]`**.
+   - Drastically frees up horizontal top-bar space across standard and wide monitors.
+   - Features outside-click detection and `Escape` key listeners for smooth auto-closing.
+
+2. **Consolidated Dropdown Menu Contents**:
+   - **Eng. / Biomedical Staff Session**: Active engineer status (`Eng. Hassan Al-Majed`), role badge, and 1-click **"Switch / Sign In"** action.
+   - **Biomedical Equipments Master**: Direct link to the equipment register, specs, and QR/RFID inventory.
+   - **+ Register New Asset**: Instant shortcut to register and commission a new medical device.
+   - **Partners Master**: Directory for OEM Vendors, Maintenance Contractors, and Equipment Suppliers.
+   - **Employees & Staff**: Hospital staff directory, usernames, passwords, and booking logs.
+   - **Departments Master**: Hospital wards, floors, ICU, OT suites, and bed slots.
+
+---
+
+## 16. Git Repository & Deployment State
+
+- **Branch:** `v2.0`
+- **Remote:** `https://github.com/ajitsands/BiomedicalEquipment-.git`
+- **Commit:** `79478cf` (*"feat: add Masters for Vendors, Contractors, Suppliers, Employees with credentials, Select2 search, booking audit, service attachments, and unified Masters dropdown menu"*)
+- **Build Status:** Verified production build with `npm run build` (`✓ built in 923ms` with zero errors).
+- **Working Tree:** Clean and fully synchronized with `origin/v2.0`.
+
