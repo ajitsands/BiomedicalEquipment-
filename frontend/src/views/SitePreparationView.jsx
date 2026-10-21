@@ -48,9 +48,26 @@ export default function SitePreparationView({
   refreshKey = 0
 }) {
   const { formatDate } = useSettings();
-  const [activeTab, setActiveTab] = useState('audits'); // 'audits' | 'deficiencies' | 'regulatory' | 'master_130'
-  const [selectedCountry, setSelectedCountry] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('all');
+  
+  // Persist Page State across modal openings and page reloads
+  const [activeTab, setActiveTabState] = useState(() => sessionStorage.getItem('siteprep_activeTab') || 'audits');
+  const setActiveTab = (tab) => {
+    sessionStorage.setItem('siteprep_activeTab', tab);
+    setActiveTabState(tab);
+  };
+
+  const [selectedCountry, setSelectedCountryState] = useState(() => sessionStorage.getItem('siteprep_selectedCountry') || 'ALL');
+  const setSelectedCountry = (country) => {
+    sessionStorage.setItem('siteprep_selectedCountry', country);
+    setSelectedCountryState(country);
+  };
+
+  const [statusFilter, setStatusFilterState] = useState(() => sessionStorage.getItem('siteprep_statusFilter') || 'all');
+  const setStatusFilter = (status) => {
+    sessionStorage.setItem('siteprep_statusFilter', status);
+    setStatusFilterState(status);
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
 
   // Data states
@@ -59,8 +76,19 @@ export default function SitePreparationView({
   const [deficiencies, setDeficiencies] = useState([]);
   const [regulatoryProfiles, setRegulatoryProfiles] = useState([]);
   const [masterItems, setMasterItems] = useState([]);
-  const [selectedCategoryCode, setSelectedCategoryCode] = useState('ALL');
-  const [deficiencyStatusFilter, setDeficiencyStatusFilter] = useState('active'); // 'active' | 'closed' | 'all'
+  
+  const [selectedCategoryCode, setSelectedCategoryCodeState] = useState(() => sessionStorage.getItem('siteprep_category') || 'ALL');
+  const setSelectedCategoryCode = (code) => {
+    sessionStorage.setItem('siteprep_category', code);
+    setSelectedCategoryCodeState(code);
+  };
+
+  const [deficiencyStatusFilter, setDeficiencyStatusFilterState] = useState(() => sessionStorage.getItem('siteprep_deficiencyStatus') || 'active');
+  const setDeficiencyStatusFilter = (status) => {
+    sessionStorage.setItem('siteprep_deficiencyStatus', status);
+    setDeficiencyStatusFilterState(status);
+  };
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -387,6 +415,75 @@ export default function SitePreparationView({
                         {hasCritical && (
                           <span style={{ color: '#dc2626', fontWeight: 700 }}>⚠️ {insp.critical_deficiencies_count} Critical</span>
                         )}
+                      </div>
+
+                      {/* 130-Point Checklist Metrics: Pass, Fail, Pending, N/A */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4, 1fr)',
+                        gap: '4px',
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: '1px dashed var(--border-color)',
+                        fontSize: '0.70rem',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{
+                          backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                          color: '#059669',
+                          padding: '3px 2px',
+                          borderRadius: '4px',
+                          fontWeight: 700,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center'
+                        }} title="Checks Verified Compliant (Passed)">
+                          <span style={{ fontSize: '0.86rem', lineHeight: 1 }}>{insp.passed_count ?? 0}</span>
+                          <span style={{ fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '2px' }}>Pass</span>
+                        </div>
+
+                        <div style={{
+                          backgroundColor: Number(insp.failed_count) > 0 ? 'rgba(239, 68, 68, 0.14)' : 'var(--bg-card)',
+                          color: Number(insp.failed_count) > 0 ? '#dc2626' : 'var(--text-muted)',
+                          padding: '3px 2px',
+                          borderRadius: '4px',
+                          fontWeight: 700,
+                          border: Number(insp.failed_count) > 0 ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid transparent',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center'
+                        }} title="Failed Deficiencies Requiring Remediation">
+                          <span style={{ fontSize: '0.86rem', lineHeight: 1 }}>{insp.failed_count ?? 0}</span>
+                          <span style={{ fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '2px' }}>Fail</span>
+                        </div>
+
+                        <div style={{
+                          backgroundColor: Number(insp.pending_count) > 0 ? 'rgba(245, 158, 11, 0.12)' : 'var(--bg-card)',
+                          color: Number(insp.pending_count) > 0 ? '#b45309' : 'var(--text-muted)',
+                          padding: '3px 2px',
+                          borderRadius: '4px',
+                          fontWeight: 700,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center'
+                        }} title="Checks Awaiting On-Site Verification">
+                          <span style={{ fontSize: '0.86rem', lineHeight: 1 }}>{insp.pending_count ?? 0}</span>
+                          <span style={{ fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '2px' }}>Pending</span>
+                        </div>
+
+                        <div style={{
+                          backgroundColor: 'var(--bg-card)',
+                          color: 'var(--text-muted)',
+                          padding: '3px 2px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center'
+                        }} title="Not Applicable for this Room / Modality">
+                          <span style={{ fontSize: '0.86rem', lineHeight: 1 }}>{insp.na_count ?? 0}</span>
+                          <span style={{ fontSize: '0.62rem', fontWeight: 600, textTransform: 'uppercase', marginTop: '2px' }}>N/A</span>
+                        </div>
                       </div>
                     </div>
 

@@ -10,7 +10,8 @@ export default function Modal({
   children,
   footer = null,
   maxWidth = null,
-  style = {}
+  style = {},
+  closeOnBackdropClick = false // Dialog mode: clicking outside does NOT dismiss modal
 }) {
   useEffect(() => {
     function handleKeyDown(e) {
@@ -36,7 +37,14 @@ export default function Modal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div 
+      className="modal-overlay" 
+      onClick={(e) => {
+        if (closeOnBackdropClick && e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div 
         className={`modal-content-card modal-${size}`} 
         style={cardStyle}

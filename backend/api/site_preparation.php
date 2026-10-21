@@ -97,7 +97,11 @@ if ($method === 'GET') {
                 p.flag as country_flag,
                 p.regulatory_authority,
                 (SELECT COUNT(*) FROM site_deficiencies def WHERE def.inspection_id = i.id AND def.status NOT IN ('Closed after verification')) as open_deficiencies_count,
-                (SELECT COUNT(*) FROM site_deficiencies def WHERE def.inspection_id = i.id AND def.priority = 'Critical' AND def.status NOT IN ('Closed after verification')) as critical_deficiencies_count
+                (SELECT COUNT(*) FROM site_deficiencies def WHERE def.inspection_id = i.id AND def.priority = 'Critical' AND def.status NOT IN ('Closed after verification')) as critical_deficiencies_count,
+                (SELECT COUNT(*) FROM site_inspection_details det WHERE det.inspection_id = i.id AND det.result = 'Pass') as passed_count,
+                (SELECT COUNT(*) FROM site_inspection_details det WHERE det.inspection_id = i.id AND det.result = 'Fail') as failed_count,
+                (SELECT COUNT(*) FROM site_inspection_details det WHERE det.inspection_id = i.id AND det.result = 'Pending') as pending_count,
+                (SELECT COUNT(*) FROM site_inspection_details det WHERE det.inspection_id = i.id AND det.result = 'N/A') as na_count
             FROM site_inspections i
             JOIN departments d ON i.department_id = d.id
             JOIN equipment_types et ON i.equipment_type_id = et.id
