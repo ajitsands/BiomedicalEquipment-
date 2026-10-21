@@ -12,7 +12,8 @@ import {
   Moon, 
   Headphones,
   Settings,
-  Globe
+  Globe,
+  Building2
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
@@ -33,6 +34,7 @@ export default function Navbar({
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'equipments', label: 'Equipments Master', icon: Layers },
+    { id: 'site_preparation', label: 'Site Preparation (v2.0)', icon: Building2 },
     { id: 'checklists', label: 'PM & Checklists', icon: CheckSquare },
     { 
       id: 'complaints', 

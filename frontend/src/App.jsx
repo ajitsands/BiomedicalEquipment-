@@ -10,6 +10,7 @@ import ChecklistsView from './views/ChecklistsView';
 import ComplaintsView from './views/ComplaintsView';
 import RfidView from './views/RfidView';
 import ReportsView from './views/ReportsView';
+import SitePreparationView from './views/SitePreparationView';
 
 // Modals
 import EquipmentPassportModal from './components/EquipmentPassportModal';
@@ -20,6 +21,10 @@ import RfidScanModal from './components/RfidScanModal';
 import SandsSupportModal from './components/SandsSupportModal';
 import WhoIecComplianceModal from './components/WhoIecComplianceModal';
 import SettingsModal from './components/SettingsModal';
+import SiteInspectionRunnerModal from './components/SiteInspectionRunnerModal';
+import NewSiteAuditModal from './components/NewSiteAuditModal';
+import SiteDeficiencyModal from './components/SiteDeficiencyModal';
+import SiteCertificateModal from './components/SiteCertificateModal';
 
 import { fetchDashboardStats } from './services/api';
 
@@ -42,6 +47,12 @@ export default function App() {
   const [isSandsSupportOpen, setIsSandsSupportOpen] = useState(false);
   const [isComplianceOpen, setIsComplianceOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Version 2.0: Site Preparation State
+  const [isNewSiteAuditOpen, setIsNewSiteAuditOpen] = useState(false);
+  const [activeSiteInspectionId, setActiveSiteInspectionId] = useState(null);
+  const [activeDeficiency, setActiveDeficiency] = useState(null);
+  const [activeSiteCertificate, setActiveSiteCertificate] = useState(null);
 
   // Badge counters
   const [activeComplaintsCount, setActiveComplaintsCount] = useState(0);
@@ -160,6 +171,17 @@ export default function App() {
             onOpenSandsSupport={() => setIsSandsSupportOpen(true)}
           />
         )}
+
+        {/* Version 2.0: Site Preparation Procedures View */}
+        {currentView === 'site_preparation' && (
+          <SitePreparationView
+            onOpenNewAudit={() => setIsNewSiteAuditOpen(true)}
+            onRunAudit={(id) => setActiveSiteInspectionId(id)}
+            onViewDeficiency={(def) => setActiveDeficiency(def)}
+            onViewCertificate={(insp) => setActiveSiteCertificate(insp)}
+            onShowToast={showToast}
+          />
+        )}
       </main>
 
       {/* Official SanDS Lab Footer */}
@@ -249,6 +271,49 @@ export default function App() {
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           onShowToast={showToast}
+        />
+      )}
+
+      {/* Version 2.0 Site Preparation Modals */}
+      {isNewSiteAuditOpen && (
+        <NewSiteAuditModal
+          isOpen={isNewSiteAuditOpen}
+          onClose={() => setIsNewSiteAuditOpen(false)}
+          onSuccess={(newId) => {
+            setIsNewSiteAuditOpen(false);
+            if (newId) setActiveSiteInspectionId(newId);
+          }}
+          onShowToast={showToast}
+        />
+      )}
+
+      {activeSiteInspectionId && (
+        <SiteInspectionRunnerModal
+          isOpen={Boolean(activeSiteInspectionId)}
+          inspectionId={activeSiteInspectionId}
+          onClose={() => setActiveSiteInspectionId(null)}
+          onSuccess={() => {}}
+          onShowToast={showToast}
+          onOpenCertificate={(auditData) => setActiveSiteCertificate(auditData)}
+        />
+      )}
+
+      {activeDeficiency && (
+        <SiteDeficiencyModal
+          isOpen={Boolean(activeDeficiency)}
+          deficiency={activeDeficiency}
+          onClose={() => setActiveDeficiency(null)}
+          onSuccess={() => {}}
+          onShowToast={showToast}
+        />
+      )}
+
+      {activeSiteCertificate && (
+        <SiteCertificateModal
+          isOpen={Boolean(activeSiteCertificate)}
+          inspection={activeSiteCertificate.inspection || activeSiteCertificate}
+          certificate={activeSiteCertificate.certificate || null}
+          onClose={() => setActiveSiteCertificate(null)}
         />
       )}
 

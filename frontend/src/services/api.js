@@ -198,3 +198,98 @@ export async function updateSettings(data) {
   if (!res.ok) throw new Error(json.message || 'Failed to update system settings');
   return json;
 }
+
+// ==========================================
+// Site Preparation Procedures API (Version 2.0)
+// ==========================================
+export async function fetchSiteCategories() {
+  const res = await fetch(`${API_BASE}/site_preparation.php?action=categories`);
+  if (!res.ok) throw new Error('Failed to fetch site categories');
+  return res.json();
+}
+
+export async function fetchSiteMasterItems(filters = {}) {
+  const params = new URLSearchParams({ action: 'master_items' });
+  Object.keys(filters).forEach(k => {
+    if (filters[k]) params.append(k, filters[k]);
+  });
+  const res = await fetch(`${API_BASE}/site_preparation.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch master checklist items');
+  return res.json();
+}
+
+export async function fetchSiteComplianceProfiles() {
+  const res = await fetch(`${API_BASE}/site_preparation.php?action=compliance_profiles`);
+  if (!res.ok) throw new Error('Failed to fetch country compliance profiles');
+  return res.json();
+}
+
+export async function fetchSiteInspections(filters = {}) {
+  const params = new URLSearchParams({ action: 'inspections' });
+  Object.keys(filters).forEach(k => {
+    if (filters[k] && filters[k] !== 'ALL') params.append(k, filters[k]);
+  });
+  const res = await fetch(`${API_BASE}/site_preparation.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch site inspections');
+  return res.json();
+}
+
+export async function fetchSiteInspectionDetail(id) {
+  const res = await fetch(`${API_BASE}/site_preparation.php?action=inspection_detail&id=${id}`);
+  if (!res.ok) throw new Error('Failed to fetch site inspection detail');
+  return res.json();
+}
+
+export async function createSiteAudit(data) {
+  const res = await fetch(`${API_BASE}/site_preparation.php?action=create_audit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to create site audit');
+  return json;
+}
+
+export async function saveSiteInspectionItems(data) {
+  const res = await fetch(`${API_BASE}/site_preparation.php?action=save_inspection_items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to save inspection evaluations');
+  return json;
+}
+
+export async function approveSiteHandover(data) {
+  const res = await fetch(`${API_BASE}/site_preparation.php?action=approve_handover`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to approve site handover');
+  return json;
+}
+
+export async function fetchSiteDeficiencies(filters = {}) {
+  const params = new URLSearchParams({ action: 'deficiencies' });
+  Object.keys(filters).forEach(k => {
+    if (filters[k] && filters[k] !== 'ALL') params.append(k, filters[k]);
+  });
+  const res = await fetch(`${API_BASE}/site_preparation.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch site deficiencies');
+  return res.json();
+}
+
+export async function updateSiteDeficiency(data) {
+  const res = await fetch(`${API_BASE}/site_preparation.php?action=update_deficiency`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update site deficiency');
+  return json;
+}
