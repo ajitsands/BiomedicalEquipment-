@@ -21,7 +21,8 @@ import { useSettings } from '../context/SettingsContext';
 export default function ComplaintsView({
   onBookComplaint,
   onViewPassport,
-  onShowToast
+  onShowToast,
+  refreshKey = 0
 }) {
   const { formatCurrency, formatDate, formatDateTime, settings } = useSettings();
   const [complaints, setComplaints] = useState([]);
@@ -44,7 +45,7 @@ export default function ComplaintsView({
 
   useEffect(() => {
     loadComplaints();
-  }, [statusFilter, priorityFilter]);
+  }, [statusFilter, priorityFilter, refreshKey]);
 
   const loadComplaints = async () => {
     try {

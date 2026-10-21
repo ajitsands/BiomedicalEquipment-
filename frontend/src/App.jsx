@@ -26,8 +26,11 @@ import NewSiteAuditModal from './components/NewSiteAuditModal';
 import SiteDeficiencyModal from './components/SiteDeficiencyModal';
 import SiteCertificateModal from './components/SiteCertificateModal';
 import EditSiteAuditModal from './components/EditSiteAuditModal';
+import DepartmentsModal from './components/DepartmentsModal';
 
 import { fetchDashboardStats } from './services/api';
+
+const VALID_VIEWS = ['dashboard', 'equipments', 'checklists', 'complaints', 'rfid', 'reports', 'site_preparation'];
 
 export default function App() {
   // Theme state: Default Light, can toggle to Dark
@@ -35,8 +38,21 @@ export default function App() {
     return localStorage.getItem('biotrack_theme') || 'light';
   });
 
-  const [currentView, setCurrentView] = useState('dashboard');
+  // Preserve active view state via URL hash and localStorage so refreshing does NOT reset to dashboard
+  const [currentView, setCurrentView] = useState(() => {
+    const hash = window.location.hash.replace(/^#\/?/, '').trim();
+    if (hash && VALID_VIEWS.includes(hash)) {
+      return hash;
+    }
+    const saved = localStorage.getItem('biotrack_current_view');
+    if (saved && VALID_VIEWS.includes(saved)) {
+      return saved;
+    }
+    return 'dashboard';
+  });
+
   const [toasts, setToasts] = useState([]);
+  const [dataRefreshKey, setDataRefreshKey] = useState(0);
 
   // Active modal targets
   const [passportEquipmentId, setPassportEquipmentId] = useState(null);
@@ -44,6 +60,7 @@ export default function App() {
   const [complaintEquipment, setComplaintEquipment] = useState(null);
   const [isBookComplaintOpen, setIsBookComplaintOpen] = useState(false);
   const [isNewEquipmentOpen, setIsNewEquipmentOpen] = useState(false);
+  const [isDepartmentsOpen, setIsDepartmentsOpen] = useState(false);
   const [isRfidScanOpen, setIsRfidScanOpen] = useState(false);
   const [isSandsSupportOpen, setIsSandsSupportOpen] = useState(false);
   const [isComplianceOpen, setIsComplianceOpen] = useState(false);
@@ -60,6 +77,26 @@ export default function App() {
   // Badge counters
   const [activeComplaintsCount, setActiveComplaintsCount] = useState(0);
   const [overduePmCount, setOverduePmCount] = useState(0);
+
+  // Keep URL hash and localStorage in sync with active view
+  useEffect(() => {
+    if (window.location.hash !== `#${currentView}`) {
+      window.location.hash = currentView;
+    }
+    localStorage.setItem('biotrack_current_view', currentView);
+  }, [currentView]);
+
+  // Support browser back/forward buttons and hash navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#\/?/, '').trim();
+      if (hash && VALID_VIEWS.includes(hash)) {
+        setCurrentView(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -113,6 +150,7 @@ export default function App() {
         toggleTheme={toggleTheme}
         onOpenBookComplaint={() => handleOpenBookComplaint(null)}
         onOpenNewEquipment={() => setIsNewEquipmentOpen(true)}
+        onOpenDepartments={() => setIsDepartmentsOpen(true)}
         onOpenSandsSupport={() => setIsSandsSupportOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeComplaintsCount={activeComplaintsCount}
@@ -129,6 +167,7 @@ export default function App() {
             onOpenNewEquipment={() => setIsNewEquipmentOpen(true)}
             onOpenRfidScanner={() => setIsRfidScanOpen(true)}
             onShowToast={showToast}
+            refreshKey={dataRefreshKey}
           />
         )}
 
@@ -140,6 +179,7 @@ export default function App() {
             onOpenNewEquipment={() => setIsNewEquipmentOpen(true)}
             onOpenRfidScanner={() => setIsRfidScanOpen(true)}
             onShowToast={showToast}
+            refreshKey={dataRefreshKey}
           />
         )}
 
@@ -148,6 +188,7 @@ export default function App() {
             onRunChecklist={(eq) => setChecklistEquipment(eq)}
             onViewPassport={(id) => setPassportEquipmentId(id)}
             onShowToast={showToast}
+            refreshKey={dataRefreshKey}
           />
         )}
 
@@ -156,6 +197,7 @@ export default function App() {
             onBookComplaint={(eq) => handleOpenBookComplaint(eq)}
             onViewPassport={(id) => setPassportEquipmentId(id)}
             onShowToast={showToast}
+            refreshKey={dataRefreshKey}
           />
         )}
 
@@ -164,6 +206,7 @@ export default function App() {
             onViewPassport={(id) => setPassportEquipmentId(id)}
             onOpenRfidScanner={() => setIsRfidScanOpen(true)}
             onShowToast={showToast}
+            refreshKey={dataRefreshKey}
           />
         )}
 
@@ -215,6 +258,7 @@ export default function App() {
           onClose={() => setChecklistEquipment(null)}
           onSuccess={() => {
             loadBadgeCounts();
+            setDataRefreshKey(prev => prev + 1);
           }}
           onShowToast={showToast}
         />
@@ -227,6 +271,7 @@ export default function App() {
           preselectedEquipment={complaintEquipment}
           onSuccess={() => {
             loadBadgeCounts();
+            setDataRefreshKey(prev => prev + 1);
           }}
           onShowToast={showToast}
         />
@@ -238,8 +283,21 @@ export default function App() {
           onClose={() => setIsNewEquipmentOpen(false)}
           onSuccess={() => {
             loadBadgeCounts();
+            setDataRefreshKey(prev => prev + 1);
           }}
+          onOpenDepartments={() => setIsDepartmentsOpen(true)}
           onShowToast={showToast}
+        />
+      )}
+
+      {isDepartmentsOpen && (
+        <DepartmentsModal
+          isOpen={isDepartmentsOpen}
+          onClose={() => setIsDepartmentsOpen(false)}
+          onShowToast={showToast}
+          onDepartmentChanged={() => {
+            setDataRefreshKey(prev => prev + 1);
+          }}
         />
       )}
 
@@ -249,6 +307,7 @@ export default function App() {
           onClose={() => setIsRfidScanOpen(false)}
           onSuccess={() => {
             loadBadgeCounts();
+            setDataRefreshKey(prev => prev + 1);
           }}
           onShowToast={showToast}
         />

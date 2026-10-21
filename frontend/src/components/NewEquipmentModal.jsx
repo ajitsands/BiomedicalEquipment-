@@ -8,6 +8,7 @@ import {
 } from '../services/api';
 import { 
   PlusCircle, 
+  Plus,
   Layers, 
   MapPin, 
   DollarSign, 
@@ -22,6 +23,7 @@ export default function NewEquipmentModal({
   isOpen,
   onClose,
   onSuccess,
+  onOpenDepartments,
   onShowToast
 }) {
   const { settings } = useSettings();
@@ -342,7 +344,28 @@ export default function NewEquipmentModal({
 
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Assigned Department <span className="required">*</span></label>
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Assigned Department <span className="required">*</span></span>
+                {onOpenDepartments && (
+                  <button
+                    type="button"
+                    onClick={onOpenDepartments}
+                    style={{ 
+                      background: 'transparent', 
+                      border: 'none', 
+                      color: 'var(--color-primary)', 
+                      cursor: 'pointer', 
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                  >
+                    <Plus size={12} /> Add / Manage Depts
+                  </button>
+                )}
+              </label>
               <select
                 className="form-control"
                 name="department_id"
@@ -351,7 +374,7 @@ export default function NewEquipmentModal({
               >
                 {departments.map(d => (
                   <option key={d.id} value={d.id}>
-                    {d.name}
+                    {d.name} ({d.building} - {d.floor})
                   </option>
                 ))}
               </select>

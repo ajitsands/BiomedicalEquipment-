@@ -92,8 +92,13 @@ export default function EquipmentPassportModal({
     }
   };
 
-  const handlePrintLabel = () => {
-    window.print();
+  const [printMode, setPrintMode] = useState('passport'); // 'passport' | 'label'
+
+  const handlePrint = (mode = 'passport') => {
+    setPrintMode(mode);
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   if (!isOpen) return null;
@@ -112,18 +117,28 @@ export default function EquipmentPassportModal({
       icon={Layers}
       size="lg"
       footer={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             Biomedical Asset ID: <strong style={{ color: 'var(--text-primary)' }}>{eq?.asset_id}</strong>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
-              onClick={handlePrintLabel}
+              onClick={() => handlePrint('passport')}
+              title="Print Complete Official Medical Equipment Passport Certificate (A4)"
             >
               <Printer size={15} />
-              Print Asset Passport / QR Label
+              Print Passport (A4)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => handlePrint('label')}
+              title="Print Physical Asset QR Sticker Tag (Thermal / Label Size)"
+            >
+              <QrCode size={15} />
+              Print QR Label
             </button>
             <button
               type="button"
@@ -156,8 +171,9 @@ export default function EquipmentPassportModal({
           Loading complete equipment lifecycle history...
         </div>
       ) : (
-        <div>
-          {/* Top Quick Summary Strip */}
+        <>
+          <div className="screen-only-passport">
+            {/* Top Quick Summary Strip */}
           <div style={{ 
             display: 'flex', 
             flexWrap: 'wrap', 
@@ -587,7 +603,7 @@ export default function EquipmentPassportModal({
 
                   <div style={{ display: 'inline-block', padding: '12px', background: '#ffffff', borderRadius: '8px', boxShadow: 'var(--shadow-sm)' }}>
                     <QRCodeSVG 
-                      value={`BIOTRACK:${eq.asset_id}:${eq.qr_code_token}`} 
+                      value={eq.asset_id} 
                       size={160}
                       level="H"
                       includeMargin={true}
@@ -611,7 +627,7 @@ export default function EquipmentPassportModal({
                     type="button"
                     className="btn btn-secondary btn-sm"
                     style={{ marginTop: '16px' }}
-                    onClick={handlePrintLabel}
+                    onClick={() => handlePrint('label')}
                   >
                     <Printer size={15} /> Print Physical Asset Tag
                   </button>
@@ -651,7 +667,281 @@ export default function EquipmentPassportModal({
             </div>
           )}
         </div>
-      )}
-    </Modal>
+
+        {/* Dedicated Medical Grade Printable Asset Passport & QR Label */}
+        {eq && (
+          <div className="asset-passport-printable">
+            {printMode === 'label' ? (
+              <div className="passport-label-tag" style={{ border: '2.5px solid #0f172a', padding: '16px', borderRadius: '10px', background: '#ffffff', textAlign: 'center', width: '380px', margin: '0 auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderBottom: '2px solid #0f172a', paddingBottom: '8px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: 900 }}>✚</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '11pt', fontWeight: 800, letterSpacing: '0.5px' }}>CLINICAL ENGINEERING</div>
+                    <div style={{ fontSize: '7.5pt', color: '#475569', textTransform: 'uppercase' }}>Hospital Medical Equipment Asset Tag</div>
+                  </div>
+                </div>
+
+                <div style={{ margin: '10px auto', display: 'inline-block', background: '#ffffff', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                  <QRCodeSVG 
+                    value={eq.asset_id} 
+                    size={160}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+
+                <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: '15pt', letterSpacing: '1px', marginTop: '6px', color: '#0f172a' }}>
+                  {eq.asset_id}
+                </div>
+                <div style={{ fontSize: '11pt', fontWeight: 700, color: '#1e293b', marginTop: '2px' }}>
+                  {eq.name}
+                </div>
+                <div style={{ fontSize: '8.5pt', color: '#475569', marginTop: '3px' }}>
+                  {eq.brand} • {eq.model_number} (SN: {eq.serial_number})
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '10px', fontSize: '8pt', textAlign: 'left', background: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                  <div><strong>Dept:</strong> {eq.department_name}</div>
+                  <div><strong>Loc:</strong> {eq.room_number || 'General'} {eq.floor ? `(${eq.floor})` : ''}</div>
+                  <div><strong>Class:</strong> {eq.iec_protection_class || 'Class I'} / {eq.patient_applied_part || 'BF'}</div>
+                  <div><strong>Risk:</strong> {eq.risk_classification || 'Critical'}</div>
+                </div>
+
+                <div style={{ marginTop: '10px', padding: '6px 10px', border: '2px solid #0f172a', borderRadius: '6px', background: '#f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '8pt', fontWeight: 700, textTransform: 'uppercase' }}>Next PM Due:</span>
+                  <span style={{ fontSize: '10pt', fontWeight: 900, color: '#0f172a' }}>{formatDate(eq.next_pm_due_date)}</span>
+                </div>
+
+                <div style={{ marginTop: '8px', fontSize: '7.5pt', color: '#64748b' }}>
+                  RFID EPC: <code>{eq.rfid_tag_id}</code> • Service: {eq.vendor_emergency_hotline || eq.vendor_phone || 'Biomed Support'}
+                </div>
+              </div>
+            ) : (
+              <div className="passport-a4-sheet" style={{ border: '2px solid #0f172a', padding: '18px 22px', borderRadius: '8px', background: '#ffffff', color: '#0f172a', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                {/* Formal Hospital Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2.5px solid #0f172a', paddingBottom: '12px', marginBottom: '14px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '24px', fontWeight: 900, color: '#0284c7' }}>✚</span>
+                      <div>
+                        <div style={{ fontSize: '15pt', fontWeight: 900, letterSpacing: '-0.3px', textTransform: 'uppercase' }}>
+                          Biomedical Engineering & Clinical Technology
+                        </div>
+                        <div style={{ fontSize: '9pt', color: '#475569', fontWeight: 600 }}>
+                          OFFICIAL MEDICAL EQUIPMENT ASSET PASSPORT & TECHNICAL DOSSIER
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '7.5pt', color: '#64748b', marginTop: '4px' }}>
+                      Standard Compliance: WHO Medical Device Technical Series • IEC 62353:2014 • NFPA 99 Healthcare Facilities Code
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', border: '1.5px solid #0f172a', padding: '6px 10px', borderRadius: '4px', background: '#f8fafc' }}>
+                    <div style={{ fontSize: '7.5pt', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Passport Generation</div>
+                    <div style={{ fontSize: '9pt', fontWeight: 800 }}>{formatDate(new Date().toISOString())}</div>
+                    <div style={{ fontSize: '7pt', color: '#0284c7', fontWeight: 700, marginTop: '2px' }}>STATUS: {eq.status.toUpperCase()}</div>
+                  </div>
+                </div>
+
+                {/* Top Section: Identification & Live QR Code */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '16px', alignItems: 'center', background: '#f8fafc', padding: '12px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '14px' }}>
+                  <div>
+                    <div style={{ fontSize: '8pt', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Equipment Title & Asset ID</div>
+                    <div style={{ fontSize: '14pt', fontWeight: 900, color: '#0f172a', lineHeight: 1.2 }}>
+                      {eq.name}
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: '11pt', background: '#0f172a', color: '#ffffff', padding: '2px 8px', borderRadius: '4px' }}>
+                        {eq.asset_id}
+                      </span>
+                      <span style={{ fontSize: '9pt', fontWeight: 700, color: '#334155' }}>
+                        SN: {eq.serial_number}
+                      </span>
+                      <span style={{ fontSize: '8.5pt', background: '#e2e8f0', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                        {eq.equipment_type}
+                      </span>
+                      <span style={{ fontSize: '8.5pt', background: eq.risk_classification?.includes('Critical') || eq.risk_classification?.includes('III') ? '#fee2e2' : '#fef3c7', color: eq.risk_classification?.includes('Critical') || eq.risk_classification?.includes('III') ? '#991b1b' : '#92400e', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                        Risk: {eq.risk_classification}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '9pt', color: '#475569', marginTop: '6px' }}>
+                      <strong>Manufacturer / Model:</strong> {eq.brand} • {eq.model_number}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ background: '#ffffff', padding: '4px', border: '1px solid #0f172a', borderRadius: '4px', display: 'inline-block' }}>
+                      <QRCodeSVG 
+                        value={eq.asset_id} 
+                        size={105}
+                        level="H"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <div style={{ fontSize: '6.5pt', fontWeight: 700, color: '#64748b', marginTop: '2px' }}>
+                      SCAN FOR CMMS
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2-Column Technical Dossier Matrix */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  {/* Column 1: Location & Electrical Safety */}
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '8.5pt', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '8px' }}>
+                      1. Deployment Location & Tracking
+                    </div>
+                    <table style={{ width: '100%', fontSize: '8.5pt', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b', width: '42%' }}>Hospital Department:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 700 }}>{eq.department_name}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>Building & Floor:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 600 }}>{eq.building} • {eq.floor}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>Room & Bed Slot:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 600 }}>{eq.room_number} {eq.bed_slot ? `(${eq.bed_slot})` : ''}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>RFID EPC Identifier:</td>
+                          <td style={{ padding: '3px 0', fontFamily: 'monospace', fontWeight: 700, fontSize: '8pt' }}>{eq.rfid_tag_id}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <div style={{ fontSize: '8.5pt', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginTop: '10px', marginBottom: '8px' }}>
+                      2. Electrical Safety & Classification (IEC 62353)
+                    </div>
+                    <table style={{ width: '100%', fontSize: '8.5pt', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b', width: '42%' }}>Protection Class:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 700 }}>{eq.iec_protection_class || 'Class I (Protective Earth)'}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>Patient Applied Part:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 700, color: '#0369a1' }}>{eq.patient_applied_part || 'Type BF (Body Floating)'}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>Regulatory Spec:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 600 }}>{eq.regulatory_code || 'WHO Technical Series / IEC 62353'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Column 2: PM, Calibration & Procurement */}
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px' }}>
+                    <div style={{ fontSize: '8.5pt', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '8px' }}>
+                      3. Preventive Maintenance & Calibration Timelines
+                    </div>
+                    <table style={{ width: '100%', fontSize: '8.5pt', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b', width: '42%' }}>Standard PM Cycle:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 700 }}>{eq.pm_frequency}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>Last PM Executed:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 600 }}>{formatDate(eq.last_pm_date)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#b45309', fontWeight: 700 }}>Next PM Due Date:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 800, color: '#b45309' }}>{formatDate(eq.next_pm_due_date)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>Last Calibration:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 600 }}>{formatDate(eq.last_calibration_date)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#0369a1', fontWeight: 700 }}>Next Calibration Due:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 800, color: '#0369a1' }}>{formatDate(eq.next_calibration_due_date)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <div style={{ fontSize: '8.5pt', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginTop: '10px', marginBottom: '8px' }}>
+                      4. Procurement & Warranty
+                    </div>
+                    <table style={{ width: '100%', fontSize: '8.5pt', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b', width: '42%' }}>Commission Date:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 600 }}>{formatDate(eq.purchase_date)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>Asset Cost:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 600 }}>{formatCurrency(eq.purchase_cost)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '3px 0', color: '#64748b' }}>Warranty Status:</td>
+                          <td style={{ padding: '3px 0', fontWeight: 700, color: eq.warranty_status === 'Active' ? '#15803d' : '#475569' }}>
+                            {eq.warranty_status} (Expires: {formatDate(eq.warranty_expiry_date)})
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Vendor & Emergency Contacts Banner */}
+                <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px 14px', background: '#f8fafc', marginBottom: '14px' }}>
+                  <div style={{ fontSize: '8.5pt', fontWeight: 800, textTransform: 'uppercase', color: '#0f172a', marginBottom: '6px' }}>
+                    5. Service Vendor, Technical Contacts & 24/7 Breakdown Hotline
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '12px', fontSize: '8.5pt' }}>
+                    <div>
+                      <div style={{ color: '#64748b' }}>Authorized Vendor / Distributor:</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{eq.vendor_name || 'In-House BioMed'}</div>
+                      <div style={{ fontSize: '8pt', color: '#475569' }}>Contact: {eq.vendor_contact_person || 'Clinical Engineering'}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b' }}>Emergency Service Hotline:</div>
+                      <div style={{ fontWeight: 800, color: '#dc2626' }}>{eq.vendor_emergency_hotline || eq.vendor_phone || 'Ext 4419'}</div>
+                      <div style={{ fontSize: '8pt', color: '#475569' }}>Email: {eq.vendor_email || 'biomed@hospital.org'}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b' }}>Internal Hospital Lead:</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{eq.in_house_contact || 'Chief BioMed Specialist'}</div>
+                      <div style={{ fontSize: '8pt', color: '#475569' }}>QR Token: <code>{eq.qr_code_token}</code></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Formal Verification & Sign-off Certification */}
+                <div style={{ borderTop: '2px solid #0f172a', paddingTop: '10px' }}>
+                  <div style={{ fontSize: '8pt', fontWeight: 800, textTransform: 'uppercase', color: '#475569', marginBottom: '8px', textAlign: 'center' }}>
+                    Official Verification, Commissioning & Hospital Safety Certification
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', textAlign: 'center' }}>
+                    <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '8px', background: '#ffffff' }}>
+                      <div style={{ height: '36px', borderBottom: '1px dashed #94a3b8' }}></div>
+                      <div style={{ fontSize: '7.5pt', fontWeight: 800, marginTop: '4px' }}>Lead Biomedical Engineer</div>
+                      <div style={{ fontSize: '6.5pt', color: '#64748b' }}>Signature & Stamp / Date</div>
+                    </div>
+                    <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '8px', background: '#ffffff' }}>
+                      <div style={{ height: '36px', borderBottom: '1px dashed #94a3b8' }}></div>
+                      <div style={{ fontSize: '7.5pt', fontWeight: 800, marginTop: '4px' }}>Head of Clinical Department</div>
+                      <div style={{ fontSize: '6.5pt', color: '#64748b' }}>Department Acceptance / Date</div>
+                    </div>
+                    <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', padding: '8px', background: '#ffffff' }}>
+                      <div style={{ height: '36px', borderBottom: '1px dashed #94a3b8' }}></div>
+                      <div style={{ fontSize: '7.5pt', fontWeight: 800, marginTop: '4px' }}>Authorized Service Engineer</div>
+                      <div style={{ fontSize: '6.5pt', color: '#64748b' }}>OEM / Vendor Verification</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '6.5pt', color: '#94a3b8', textAlign: 'center', marginTop: '8px' }}>
+                    This document is an official clinical asset technical passport. Detachment or unauthorized alteration invalidates hospital biomedical certification.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    )}
+  </Modal>
   );
 }

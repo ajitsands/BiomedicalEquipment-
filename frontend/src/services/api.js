@@ -143,6 +143,37 @@ export async function fetchDepartments() {
   return res.json();
 }
 
+export async function createDepartment(data) {
+  const res = await fetch(`${API_BASE}/departments.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to create department');
+  return json;
+}
+
+export async function updateDepartment(data) {
+  const res = await fetch(`${API_BASE}/departments.php`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update department');
+  return json;
+}
+
+export async function deleteDepartment(id) {
+  const res = await fetch(`${API_BASE}/departments.php?id=${id}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to delete department');
+  return json;
+}
+
 export async function fetchVendors() {
   const res = await fetch(`${API_BASE}/vendors.php`);
   if (!res.ok) throw new Error('Failed to fetch vendors');

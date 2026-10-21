@@ -27,7 +27,8 @@ export default function EquipmentsView({
   onBookComplaint,
   onOpenNewEquipment,
   onOpenRfidScanner,
-  onShowToast
+  onShowToast,
+  refreshKey = 0
 }) {
   const { formatDate, formatCurrency } = useSettings();
   const [equipments, setEquipments] = useState([]);
@@ -41,7 +42,7 @@ export default function EquipmentsView({
 
   useEffect(() => {
     loadData();
-  }, [selectedDept, selectedWarranty, selectedStatus]);
+  }, [selectedDept, selectedWarranty, selectedStatus, refreshKey]);
 
   const loadData = async () => {
     try {

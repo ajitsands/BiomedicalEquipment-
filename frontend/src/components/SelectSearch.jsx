@@ -10,6 +10,7 @@ export default function SelectSearch({
   valueKey = 'value',
   subLabelKey = null,
   disabled = false,
+  hasError = false,
   className = ''
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -58,7 +59,7 @@ export default function SelectSearch({
   return (
     <div className={`select2-container ${className}`} ref={containerRef}>
       <div 
-        className={`select2-trigger ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
+        className={`select2-trigger ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''} ${hasError ? 'has-error' : ''}`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
       >
         <span style={{ color: selectedOption ? 'inherit' : 'var(--text-muted)' }}>

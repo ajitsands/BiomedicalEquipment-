@@ -28,7 +28,8 @@ export default function DashboardView({
   onOpenBookComplaint,
   onOpenNewEquipment,
   onOpenRfidScanner,
-  onShowToast
+  onShowToast,
+  refreshKey = 0
 }) {
   const { formatCurrency, formatDate, formatTime, formatDateTime } = useSettings();
   const [stats, setStats] = useState(null);
@@ -36,7 +37,7 @@ export default function DashboardView({
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [refreshKey]);
 
   const loadDashboard = async () => {
     try {

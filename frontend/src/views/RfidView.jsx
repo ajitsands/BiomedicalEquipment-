@@ -20,7 +20,8 @@ import { useSettings } from '../context/SettingsContext';
 export default function RfidView({
   onViewPassport,
   onOpenRfidScanner,
-  onShowToast
+  onShowToast,
+  refreshKey = 0
 }) {
   const { formatDateTime } = useSettings();
   const [equipments, setEquipments] = useState([]);
@@ -31,7 +32,7 @@ export default function RfidView({
 
   useEffect(() => {
     loadRfidData();
-  }, []);
+  }, [refreshKey]);
 
   const loadRfidData = async () => {
     try {

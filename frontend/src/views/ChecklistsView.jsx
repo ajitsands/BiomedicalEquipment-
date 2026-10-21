@@ -27,7 +27,8 @@ import {
 export default function ChecklistsView({
   onRunChecklist,
   onViewPassport,
-  onShowToast
+  onShowToast,
+  refreshKey = 0
 }) {
   const [templates, setTemplates] = useState([]);
   const [equipments, setEquipments] = useState([]);
@@ -41,7 +42,7 @@ export default function ChecklistsView({
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [refreshKey]);
 
   const loadData = async () => {
     try {

@@ -254,7 +254,7 @@ export default function ReportsView({
             <div style={{ textAlign: 'center', borderLeft: '1px solid #e2e8f0', paddingLeft: '16px' }}>
               <div style={{ display: 'inline-block', padding: '6px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
                 <QRCodeSVG 
-                  value={`BIOTRACK:${eq.asset_id}:${eq.qr_code_token}`} 
+                  value={eq.asset_id} 
                   size={110}
                   level="H"
                 />

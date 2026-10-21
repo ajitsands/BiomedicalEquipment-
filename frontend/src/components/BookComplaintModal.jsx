@@ -40,9 +40,11 @@ export default function BookComplaintModal({
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (isOpen) {
+      setErrors({});
       loadData();
     }
   }, [isOpen]);
@@ -78,6 +80,9 @@ export default function BookComplaintModal({
 
   const handleEquipmentSelect = (val, opt) => {
     setSelectedEquipmentId(val);
+    if (errors.equipment) {
+      setErrors(prev => ({ ...prev, equipment: null }));
+    }
     if (opt) {
       setDepartmentId(opt.department_id);
       setRoomOrBed(`${opt.room_number || ''} ${opt.bed_slot || ''}`.trim());
@@ -95,6 +100,9 @@ export default function BookComplaintModal({
       setCategory(found.category);
       if (!description) {
         setDescription(found.description);
+        if (errors.description) {
+          setErrors(prev => ({ ...prev, description: null }));
+        }
       }
       if (found.priority_guidance?.toLowerCase().includes('critical')) {
         setPriority('Critical - Life Support');
@@ -107,9 +115,34 @@ export default function BookComplaintModal({
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedEquipmentId || !description || !bookedByName) {
-      onShowToast({ type: 'warning', title: 'Required Fields', message: 'Please select an equipment and describe the problem' });
+    if (e && e.preventDefault) e.preventDefault();
+    
+    const newErrors = {};
+    if (!selectedEquipmentId) {
+      newErrors.equipment = 'Please select a biomedical equipment from the list';
+    }
+    if (!description || !description.trim()) {
+      newErrors.description = 'Please describe the problem symptoms';
+    }
+    if (!bookedByName || !bookedByName.trim()) {
+      newErrors.bookedByName = 'Please enter the reporter name';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      if (newErrors.equipment) {
+        onShowToast({ 
+          type: 'warning', 
+          title: 'Equipment Required', 
+          message: 'Please select an equipment from the dropdown to book a complaint.' 
+        });
+      } else if (newErrors.description) {
+        onShowToast({ 
+          type: 'warning', 
+          title: 'Description Required', 
+          message: 'Please provide problem symptoms or description.' 
+        });
+      }
       return;
     }
 
@@ -124,7 +157,7 @@ export default function BookComplaintModal({
         booked_by_phone: bookedByPhone,
         complaint_category: selectedCode ? `[${selectedCode}] ${category}` : category,
         priority,
-        description
+        description: description.trim()
       };
 
       const res = await bookComplaint(payload);
@@ -136,6 +169,7 @@ export default function BookComplaintModal({
       });
 
       setDescription('');
+      setErrors({});
       onSuccess && onSuccess(res);
       onClose();
     } catch (err) {
@@ -173,7 +207,7 @@ export default function BookComplaintModal({
             type="button" 
             className="btn btn-danger btn-sm" 
             onClick={handleSubmit}
-            disabled={submitting || !selectedEquipmentId || !description}
+            disabled={submitting}
           >
             <Send size={15} />
             {submitting ? 'Dispatching Ticket...' : 'Book Complaint & Dispatch Alert'}
@@ -201,9 +235,16 @@ export default function BookComplaintModal({
             options={equipmentOptions}
             value={selectedEquipmentId}
             onChange={handleEquipmentSelect}
-            placeholder="Type device name, asset ID, or room..."
+            placeholder={loading ? "Loading equipment inventory..." : "Type device name, asset ID, or room..."}
             subLabelKey="subLabel"
+            hasError={Boolean(errors.equipment)}
           />
+          {errors.equipment && (
+            <div className="field-error-text">
+              <AlertTriangle size={13} />
+              <span>{errors.equipment}</span>
+            </div>
+          )}
         </div>
 
         {/* Standard WHO Complaint Codes */}
@@ -288,11 +329,20 @@ export default function BookComplaintModal({
             <label className="form-label">Reported By Name <span className="required">*</span></label>
             <input
               type="text"
-              className="form-control"
+              className={`form-control ${errors.bookedByName ? 'input-error' : ''}`}
               value={bookedByName}
-              onChange={(e) => setBookedByName(e.target.value)}
+              onChange={(e) => {
+                setBookedByName(e.target.value);
+                if (errors.bookedByName) setErrors(prev => ({ ...prev, bookedByName: null }));
+              }}
               required
             />
+            {errors.bookedByName && (
+              <div className="field-error-text">
+                <AlertTriangle size={13} />
+                <span>{errors.bookedByName}</span>
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -319,13 +369,22 @@ export default function BookComplaintModal({
         <div className="form-group" style={{ marginBottom: 0 }}>
           <label className="form-label">Problem Symptoms & Description <span className="required">*</span></label>
           <textarea
-            className="form-control"
+            className={`form-control ${errors.description ? 'input-error' : ''}`}
             rows={3}
             placeholder="Describe what occurred, any error codes displayed on screen, and patient safety status..."
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              if (errors.description) setErrors(prev => ({ ...prev, description: null }));
+            }}
             required
           />
+          {errors.description && (
+            <div className="field-error-text">
+              <AlertTriangle size={13} />
+              <span>{errors.description}</span>
+            </div>
+          )}
         </div>
       </form>
     </Modal>

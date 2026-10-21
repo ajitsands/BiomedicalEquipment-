@@ -24,6 +24,7 @@ export default function Navbar({
   toggleTheme,
   onOpenBookComplaint,
   onOpenNewEquipment,
+  onOpenDepartments,
   onOpenSandsSupport,
   onOpenSettings,
   activeComplaintsCount = 0,
@@ -107,6 +108,17 @@ export default function Navbar({
           >
             <Headphones size={15} />
             <span>Help Line (+973 35078079)</span>
+          </button>
+
+          {/* Hospital Departments Management */}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenDepartments}
+            title="Manage Hospital Departments & Facility Locations"
+          >
+            <Building2 size={15} />
+            <span>Departments</span>
           </button>
 
           {/* New Asset Master */}

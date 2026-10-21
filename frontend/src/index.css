@@ -674,6 +674,15 @@ input, select, textarea {
   border-radius: var(--radius-md);
 }
 
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+
 /* DataTable Styling */
 .datatable-wrapper {
   background-color: var(--bg-surface);
@@ -852,6 +861,26 @@ input, select, textarea {
 .select2-trigger:hover, .select2-trigger.open {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.select2-trigger.has-error {
+  border-color: var(--color-danger) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+.input-error {
+  border-color: var(--color-danger) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+.field-error-text {
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
 }
 
 .select2-dropdown {
@@ -1256,21 +1285,99 @@ input, select, textarea {
   transform: translateY(-1px);
 }
 
-/* Printable Asset Label */
+/* Printable Asset Passport & QR Label Styles */
+.asset-passport-printable {
+  display: none;
+}
+
 @media print {
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
   }
-  .navbar-header, .app-footer, .btn, .tabs-nav {
+
+  body, html {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 9.5pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Completely hide all screen UI, headers, footers, toasts, backdrop */
+  .navbar-header,
+  .header-menu-bar,
+  .main-content,
+  .app-footer,
+  .modal-header-bar,
+  .modal-footer-bar,
+  .tabs-nav,
+  .btn,
+  .toast-container,
+  .screen-only-passport {
     display: none !important;
   }
-  .main-content {
+
+  /* Flatten modal containers to standard print flow */
+  .modal-overlay {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
     padding: 0 !important;
-    max-width: 100% !important;
-  }
-  .printable-sheet {
+    margin: 0 !important;
     display: block !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .modal-content-card {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .modal-body-scroll {
+    overflow: visible !important;
+    max-height: none !important;
+    padding: 0 !important;
+  }
+
+  /* Show the dedicated printable asset passport or label */
+  .asset-passport-printable {
+    display: block !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .passport-a4-sheet {
+    border: 2px solid #0f172a;
+    border-radius: 8px;
+    padding: 16px 20px;
+    background: #ffffff;
+    page-break-inside: avoid;
+  }
+
+  .passport-label-tag {
+    max-width: 380px;
+    margin: 20px auto;
+    border: 2px dashed #0f172a;
+    border-radius: 8px;
+    padding: 16px;
+    background: #ffffff;
+    page-break-inside: avoid;
   }
 }
 

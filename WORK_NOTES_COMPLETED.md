@@ -133,3 +133,20 @@ run_localhost_2020.bat
 :: To stop all running servers:
 stop_localhost_2020.bat
 ```
+
+---
+
+## 8. Asset Passport Printing & QR Code Scanner Optimization
+
+1. **Clean QR Code Payload (Asset ID Only)**:
+   - Updated QR Code generation in [`EquipmentPassportModal.jsx`](file:///e:/medical_equpments/frontend/src/components/EquipmentPassportModal.jsx) and [`ReportsView.jsx`](file:///e:/medical_equpments/frontend/src/views/ReportsView.jsx) to encode **only the Asset ID** (`value={eq.asset_id}`).
+   - Removed composite prefixes (`BIOTRACK:...`) so when hospital staff scan the equipment QR tag with any barcode reader, mobile camera, or scanner gun, it reads cleanly as the exact asset number (e.g. `BME-OT-ANES-008`).
+   - Enables direct 1:1 barcode scanning into the equipment register search bar.
+
+2. **Official Medical Equipment Asset Passport & QR Label Print Layout**:
+   - Resolved print backdrop/overlay issue where browser print preview previously captured dark modal overlays, buttons, and misaligned tab panels across multiple pages.
+   - Added comprehensive `@media print` CSS rules in [`index.css`](file:///e:/medical_equpments/frontend/src/index.css) to hide screen UI, flatten overlays to white backgrounds, and format sheets cleanly.
+   - Provides two dedicated print options:
+     - **Print Passport (A4)**: Formal WHO / IEC 62353 compliant single-page clinical dossier with hospital headers, safety classifications, PM/calibration timelines, vendor support hotlines, and engineering sign-off verification boxes.
+     - **Print QR Label**: High-contrast, clean 3" x 2" equipment badge with high-resolution vector QR code, asset ID, serial number, and PM due date designed for thermal sticker printers.
+
