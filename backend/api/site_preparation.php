@@ -348,6 +348,53 @@ if ($method === 'POST') {
         }
     }
 
+    // A2. Update Site Audit Metadata (Facility Name, Room, Lead Engineer, Model, etc.)
+    if ($action === 'update_audit') {
+        $id = (int)($input['id'] ?? 0);
+        if ($id <= 0) jsonError('Invalid inspection audit ID.');
+
+        try {
+            $stmt = $pdo->prepare("UPDATE site_inspections SET
+                facility_name = COALESCE(?, facility_name),
+                room_number = COALESCE(?, room_number),
+                department_id = COALESCE(?, department_id),
+                equipment_type_id = COALESCE(?, equipment_type_id),
+                vendor_id = ?,
+                country_code = COALESCE(?, country_code),
+                target_model = COALESCE(?, target_model),
+                lead_biomedical_engineer = COALESCE(?, lead_biomedical_engineer),
+                vendor_project_manager = COALESCE(?, vendor_project_manager),
+                target_installation_date = COALESCE(?, target_installation_date),
+                overall_status = COALESCE(?, overall_status),
+                special_notes = COALESCE(?, special_notes)
+                WHERE id = ?");
+
+            $stmt->execute([
+                $input['facility_name'] ?? null,
+                $input['room_number'] ?? null,
+                isset($input['department_id']) ? (int)$input['department_id'] : null,
+                isset($input['equipment_type_id']) ? (int)$input['equipment_type_id'] : null,
+                !empty($input['vendor_id']) ? (int)$input['vendor_id'] : null,
+                $input['country_code'] ?? null,
+                $input['target_model'] ?? null,
+                $input['lead_biomedical_engineer'] ?? null,
+                $input['vendor_project_manager'] ?? null,
+                $input['target_installation_date'] ?? null,
+                $input['overall_status'] ?? null,
+                $input['special_notes'] ?? null,
+                $id
+            ]);
+
+            jsonResponse([
+                'status' => 'success',
+                'message' => 'Site preparation audit information updated successfully.',
+                'data' => ['id' => $id]
+            ]);
+        } catch (PDOException $e) {
+            jsonError('Failed to update audit information: ' . $e->getMessage(), 500);
+        }
+    }
+
     // B. Save Evaluation for Inspection Items & Recalculate Readiness %
     if ($action === 'save_inspection_items') {
         $inspectionId = (int)($input['inspection_id'] ?? 0);

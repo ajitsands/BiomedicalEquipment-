@@ -251,6 +251,17 @@ export async function createSiteAudit(data) {
   return json;
 }
 
+export async function updateSiteAudit(data) {
+  const res = await fetch(`${API_BASE}/site_preparation.php?action=update_audit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update site audit');
+  return json;
+}
+
 export async function saveSiteInspectionItems(data) {
   const res = await fetch(`${API_BASE}/site_preparation.php?action=save_inspection_items`, {
     method: 'POST',

@@ -34,15 +34,18 @@ import {
   FileCheck2,
   AlertTriangle,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Edit3
 } from 'lucide-react';
 
 export default function SitePreparationView({
   onOpenNewAudit,
   onRunAudit,
+  onEditAudit,
   onViewDeficiency,
   onViewCertificate,
-  onShowToast
+  onShowToast,
+  refreshKey = 0
 }) {
   const { formatDate } = useSettings();
   const [activeTab, setActiveTab] = useState('audits'); // 'audits' | 'deficiencies' | 'regulatory' | 'master_130'
@@ -61,7 +64,7 @@ export default function SitePreparationView({
 
   useEffect(() => {
     loadData();
-  }, [selectedCountry, statusFilter, activeTab]);
+  }, [selectedCountry, statusFilter, activeTab, refreshKey]);
 
   const loadData = async () => {
     try {
@@ -394,6 +397,17 @@ export default function SitePreparationView({
                       >
                         <CheckSquare size={14} />
                         <span>Run 130-Point Audit</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => onEditAudit && onEditAudit(insp)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title="Edit Hospital Name, Room, Model, or Audit Info"
+                      >
+                        <Edit3 size={14} />
+                        <span>Edit</span>
                       </button>
 
                       {isApproved && (

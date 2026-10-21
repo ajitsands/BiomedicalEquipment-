@@ -35,7 +35,8 @@ import {
   Wrench,
   ShieldAlert,
   Truck,
-  FileText
+  FileText,
+  Edit3
 } from 'lucide-react';
 
 export default function SiteInspectionRunnerModal({
@@ -44,7 +45,8 @@ export default function SiteInspectionRunnerModal({
   inspectionId,
   onSuccess,
   onShowToast,
-  onOpenCertificate
+  onOpenCertificate,
+  onOpenEditAudit
 }) {
   const { formatDate } = useSettings();
   const [loading, setLoading] = useState(true);
@@ -174,6 +176,33 @@ export default function SiteInspectionRunnerModal({
     if (filterResult !== 'ALL' && res !== filterResult) return false;
     return true;
   });
+
+  // Bulk pass all visible/filtered pending items
+  const handlePassAllVisible = () => {
+    const updated = { ...localEvaluations };
+    let count = 0;
+    filteredItems.forEach(item => {
+      const current = updated[item.checklist_item_id] || {};
+      if (current.result === 'Pending' || !current.result) {
+        updated[item.checklist_item_id] = {
+          ...current,
+          checklist_item_id: item.checklist_item_id,
+          result: 'Pass',
+          measured_value: current.measured_value || 'Compliant',
+          inspector_remarks: current.inspector_remarks || 'Inspection verified per pre-installation engineering protocol.'
+        };
+        count++;
+      }
+    });
+    setLocalEvaluations(updated);
+    if (onShowToast) {
+      onShowToast({
+        type: 'info',
+        title: 'Bulk Evaluation Updated',
+        message: `Marked ${count} pending checks in "${activeCategory === 'ALL' ? 'All Categories' : activeCategory}" as Pass. Click "Save Progress" to commit.`
+      });
+    }
+  };
 
   // Save evaluations
   const handleSaveEvaluations = async () => {
@@ -329,7 +358,32 @@ export default function SiteInspectionRunnerModal({
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {onOpenEditAudit && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => onOpenEditAudit(auditData)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    title="Edit Facility Name, Room, Model, or Engineers"
+                  >
+                    <Edit3 size={14} />
+                    <span>Edit Info</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handlePassAllVisible}
+                  disabled={submitting}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  title="Mark all currently visible pending questions as Pass"
+                >
+                  <CheckCircle2 size={14} color="#10b981" />
+                  <span>Pass All Visible</span>
+                </button>
+
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"

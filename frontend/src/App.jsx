@@ -25,6 +25,7 @@ import SiteInspectionRunnerModal from './components/SiteInspectionRunnerModal';
 import NewSiteAuditModal from './components/NewSiteAuditModal';
 import SiteDeficiencyModal from './components/SiteDeficiencyModal';
 import SiteCertificateModal from './components/SiteCertificateModal';
+import EditSiteAuditModal from './components/EditSiteAuditModal';
 
 import { fetchDashboardStats } from './services/api';
 
@@ -53,6 +54,8 @@ export default function App() {
   const [activeSiteInspectionId, setActiveSiteInspectionId] = useState(null);
   const [activeDeficiency, setActiveDeficiency] = useState(null);
   const [activeSiteCertificate, setActiveSiteCertificate] = useState(null);
+  const [activeEditAudit, setActiveEditAudit] = useState(null);
+  const [sitePrepRefreshKey, setSitePrepRefreshKey] = useState(0);
 
   // Badge counters
   const [activeComplaintsCount, setActiveComplaintsCount] = useState(0);
@@ -177,9 +180,11 @@ export default function App() {
           <SitePreparationView
             onOpenNewAudit={() => setIsNewSiteAuditOpen(true)}
             onRunAudit={(id) => setActiveSiteInspectionId(id)}
+            onEditAudit={(insp) => setActiveEditAudit(insp)}
             onViewDeficiency={(def) => setActiveDeficiency(def)}
             onViewCertificate={(insp) => setActiveSiteCertificate(insp)}
             onShowToast={showToast}
+            refreshKey={sitePrepRefreshKey}
           />
         )}
       </main>
@@ -281,6 +286,7 @@ export default function App() {
           onClose={() => setIsNewSiteAuditOpen(false)}
           onSuccess={(newId) => {
             setIsNewSiteAuditOpen(false);
+            setSitePrepRefreshKey(k => k + 1);
             if (newId) setActiveSiteInspectionId(newId);
           }}
           onShowToast={showToast}
@@ -291,10 +297,16 @@ export default function App() {
         <SiteInspectionRunnerModal
           isOpen={Boolean(activeSiteInspectionId)}
           inspectionId={activeSiteInspectionId}
-          onClose={() => setActiveSiteInspectionId(null)}
-          onSuccess={() => {}}
+          onClose={() => {
+            setActiveSiteInspectionId(null);
+            setSitePrepRefreshKey(k => k + 1);
+          }}
+          onSuccess={() => {
+            setSitePrepRefreshKey(k => k + 1);
+          }}
           onShowToast={showToast}
           onOpenCertificate={(auditData) => setActiveSiteCertificate(auditData)}
+          onOpenEditAudit={(auditData) => setActiveEditAudit(auditData)}
         />
       )}
 
@@ -303,7 +315,9 @@ export default function App() {
           isOpen={Boolean(activeDeficiency)}
           deficiency={activeDeficiency}
           onClose={() => setActiveDeficiency(null)}
-          onSuccess={() => {}}
+          onSuccess={() => {
+            setSitePrepRefreshKey(k => k + 1);
+          }}
           onShowToast={showToast}
         />
       )}
@@ -314,6 +328,19 @@ export default function App() {
           inspection={activeSiteCertificate.inspection || activeSiteCertificate}
           certificate={activeSiteCertificate.certificate || null}
           onClose={() => setActiveSiteCertificate(null)}
+        />
+      )}
+
+      {activeEditAudit && (
+        <EditSiteAuditModal
+          isOpen={Boolean(activeEditAudit)}
+          audit={activeEditAudit}
+          onClose={() => setActiveEditAudit(null)}
+          onSuccess={() => {
+            setSitePrepRefreshKey(k => k + 1);
+            setActiveEditAudit(null);
+          }}
+          onShowToast={showToast}
         />
       )}
 
