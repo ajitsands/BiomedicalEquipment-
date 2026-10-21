@@ -60,6 +60,7 @@ export default function SitePreparationView({
   const [regulatoryProfiles, setRegulatoryProfiles] = useState([]);
   const [masterItems, setMasterItems] = useState([]);
   const [selectedCategoryCode, setSelectedCategoryCode] = useState('ALL');
+  const [deficiencyStatusFilter, setDeficiencyStatusFilter] = useState('active'); // 'active' | 'closed' | 'all'
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -97,6 +98,7 @@ export default function SitePreparationView({
   const approvedAudits = inspections.filter(i => i.overall_status === 'Approved & Ready for Delivery').length;
   const remediationRequired = inspections.filter(i => i.overall_status === 'Remediation Required').length;
   const openDeficienciesCount = deficiencies.filter(d => d.status !== 'Closed after verification').length;
+  const closedDeficienciesCount = deficiencies.filter(d => d.status === 'Closed after verification').length;
   const criticalDefectsCount = deficiencies.filter(d => d.priority === 'Critical' && d.status !== 'Closed after verification').length;
 
   return (
@@ -237,7 +239,7 @@ export default function SitePreparationView({
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <AlertOctagon size={15} />
-            <span>Deficiency Punch-List ({deficiencies.length})</span>
+            <span>Deficiency Punch-List ({openDeficienciesCount})</span>
           </button>
 
           <button
@@ -482,6 +484,57 @@ export default function SitePreparationView({
             </button>
           </div>
 
+          {/* Status Scope Sub-Tabs */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+            backgroundColor: 'var(--bg-card)',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Defect Scope:</span>
+              <button
+                type="button"
+                className={`btn btn-sm ${deficiencyStatusFilter === 'active' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setDeficiencyStatusFilter('active')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+              >
+                <AlertOctagon size={14} />
+                <span>Active Deficiencies ({openDeficienciesCount})</span>
+              </button>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${deficiencyStatusFilter === 'closed' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setDeficiencyStatusFilter('closed')}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}
+              >
+                <CheckCircle2 size={14} color="#10b981" />
+                <span>Closed & Verified ({closedDeficienciesCount})</span>
+              </button>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${deficiencyStatusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setDeficiencyStatusFilter('all')}
+                style={{ fontWeight: 600 }}
+              >
+                <span>All History ({deficiencies.length})</span>
+              </button>
+            </div>
+
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              {deficiencyStatusFilter === 'active' && 'Showing unverified items blocking delivery clearance'}
+              {deficiencyStatusFilter === 'closed' && 'Showing items verified resolved by biomedical engineering'}
+              {deficiencyStatusFilter === 'all' && 'Showing complete audit defect lifecycle records'}
+            </div>
+          </div>
+
           {/* Category Filter Pills */}
           <div style={{
             display: 'flex',
@@ -496,10 +549,16 @@ export default function SitePreparationView({
               onClick={() => setSelectedCategoryCode('ALL')}
               style={{ whiteSpace: 'nowrap', fontWeight: 600 }}
             >
-              All Categories ({deficiencies.length} Open Defects)
+              All Categories ({deficiencyStatusFilter === 'active' ? openDeficienciesCount : deficiencyStatusFilter === 'closed' ? closedDeficienciesCount : deficiencies.length} {deficiencyStatusFilter === 'closed' ? 'Closed' : 'Open'})
             </button>
             {categories.map(c => {
-              const defCount = Number(c.active_deficiencies_count || 0);
+              const defCount = deficiencies.filter(d => {
+                if (d.category_code !== c.code) return false;
+                if (deficiencyStatusFilter === 'active') return d.status !== 'Closed after verification';
+                if (deficiencyStatusFilter === 'closed') return d.status === 'Closed after verification';
+                return true;
+              }).length;
+
               return (
                 <button
                   key={c.code}
@@ -513,11 +572,11 @@ export default function SitePreparationView({
                     fontSize: '0.68rem',
                     padding: '1px 6px',
                     borderRadius: '10px',
-                    backgroundColor: defCount > 0 ? '#ef4444' : 'rgba(16, 185, 129, 0.18)',
+                    backgroundColor: defCount > 0 ? (deficiencyStatusFilter === 'closed' ? '#10b981' : '#ef4444') : 'rgba(16, 185, 129, 0.18)',
                     color: defCount > 0 ? '#ffffff' : '#059669',
                     fontWeight: 700
                   }}>
-                    {defCount > 0 ? `${defCount} Defect${defCount > 1 ? 's' : ''}` : '0 Defects'}
+                    {defCount > 0 ? `${defCount} ${deficiencyStatusFilter === 'closed' ? 'Closed' : 'Defect'}${defCount > 1 ? 's' : ''}` : '0 Defects'}
                   </span>
                 </button>
               );
@@ -540,7 +599,14 @@ export default function SitePreparationView({
               </thead>
               <tbody>
                 {(() => {
-                  const filtered = deficiencies.filter(d => selectedCategoryCode === 'ALL' || d.category_code === selectedCategoryCode);
+                  const filtered = deficiencies
+                    .filter(d => {
+                      if (deficiencyStatusFilter === 'active') return d.status !== 'Closed after verification';
+                      if (deficiencyStatusFilter === 'closed') return d.status === 'Closed after verification';
+                      return true; // 'all'
+                    })
+                    .filter(d => selectedCategoryCode === 'ALL' || d.category_code === selectedCategoryCode);
+
                   if (filtered.length === 0) {
                     return (
                       <tr>
@@ -548,18 +614,20 @@ export default function SitePreparationView({
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                             <CheckCircle2 size={36} color="#10b981" />
                             <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '1rem' }}>
-                              Zero Open Deficiencies in {selectedCategoryCode === 'ALL' ? 'Selected Scope' : selectedCategoryCode}
+                              Zero {deficiencyStatusFilter === 'closed' ? 'Closed Records' : 'Open Deficiencies'} in {selectedCategoryCode === 'ALL' ? 'Selected Scope' : selectedCategoryCode}
                             </div>
                             <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', maxWidth: '480px', lineHeight: 1.4 }}>
-                              All inspected site parameters in this category are compliant across hospitals.
-                              {deficiencies.length > 0 && selectedCategoryCode !== 'ALL' && (
+                              {deficiencyStatusFilter === 'closed'
+                                ? 'No closed deficiencies in this category yet. When items are verified resolved, they will appear here.'
+                                : 'All inspected site parameters in this category are compliant across hospitals.'}
+                              {selectedCategoryCode !== 'ALL' && (
                                 <div style={{ marginTop: '10px' }}>
                                   <button
                                     type="button"
                                     className="btn btn-secondary btn-sm"
                                     onClick={() => setSelectedCategoryCode('ALL')}
                                   >
-                                    View All {deficiencies.length} Hospital Delivery Punch-List Items
+                                    View All Categories
                                   </button>
                                 </div>
                               )}
