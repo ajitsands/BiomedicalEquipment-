@@ -213,7 +213,7 @@ if ($action === 'test_swipe' || $action === 'toggle') {
     }
 }
 
-function processReaderCardSwipe($cardNo, $readerIp, $reader, $pdo) {
+function processReaderCardSwipe($cardNo, $readerIp, $reader, $pdo, $recordTimestamp = null) {
     $rawCard = trim($cardNo);
     if (empty($rawCard)) return null;
 
@@ -232,6 +232,17 @@ function processReaderCardSwipe($cardNo, $readerIp, $reader, $pdo) {
     $eq = $eqStmt->fetch();
 
     if (!$eq) return null;
+
+    // Timestamp check: Verify that this scan occurred AFTER the asset's last recorded detection!
+    // If the card was swiped on an older reader in the past, it must NOT pull the asset backwards!
+    if (!empty($recordTimestamp) && !empty($eq['rfid_last_detected_at'])) {
+        $recTime = is_numeric($recordTimestamp) ? (int)$recordTimestamp : strtotime($recordTimestamp);
+        $lastDetectedTime = strtotime($eq['rfid_last_detected_at']);
+        
+        if ($recTime <= $lastDetectedTime) {
+            return null; // Ignore stale historical record
+        }
+    }
 
     // 5-second debounce check
     $recentStmt = $pdo->prepare("SELECT movement_direction, scan_timestamp 
@@ -380,17 +391,20 @@ if ($action === 'poll' || $action === 'sync') {
                     $recNo = (int)($parsed["records[{$i}].RecNo"] ?? 0);
                     $cardNo = $parsed["records[{$i}].CardNo"] ?? '';
                     $userId = $parsed["records[{$i}].UserID"] ?? '';
+                    $createTime = (int)($parsed["records[{$i}].CreateTime"] ?? $parsed["records[{$i}].CreateTimeRealUTC"] ?? 0);
                     if ($recNo > $maxRecNo) $maxRecNo = $recNo;
                     if (!empty($cardNo) || !empty($userId)) {
                         $records[] = [
                             'rec_no' => $recNo,
                             'card_no' => $cardNo,
-                            'user_id' => $userId
+                            'user_id' => $userId,
+                            'create_time' => $createTime
                         ];
                     }
                 }
 
-                if ($lastSaved === false || $lastSaved === null) {
+                if ($lastSaved === false || $lastSaved === null || (int)$lastSaved === 0) {
+                    // Initialize setting to maxRecNo so we NEVER replay past records on startup or reconnect!
                     $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES (?, ?, 'hardware', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")
                         ->execute([$settingKey, $maxRecNo, "Last processed RecNo for reader {$curIp}"]);
                     continue;
@@ -410,7 +424,7 @@ if ($action === 'poll' || $action === 'sync') {
                         $lastProcessed = $r['rec_no'];
                         $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = ?")->execute([$lastProcessed, $settingKey]);
 
-                        $event = processReaderCardSwipe($effectiveCard, $curIp, $reader, $pdo);
+                        $event = processReaderCardSwipe($effectiveCard, $curIp, $reader, $pdo, $r['create_time']);
                         if ($event) {
                             $syncedEvent = $event;
                             break;

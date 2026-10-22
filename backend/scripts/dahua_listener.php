@@ -49,7 +49,7 @@ function parseDahuaRecords($rawText) {
     return $parsed;
 }
 
-function processCardSwipe($cardNo, $pdo, $dahuaIp) {
+function processCardSwipe($cardNo, $pdo, $dahuaIp, $recordTimestamp = null) {
     $rawCard = trim($cardNo);
     if (empty($rawCard)) return;
 
@@ -71,6 +71,18 @@ function processCardSwipe($cardNo, $pdo, $dahuaIp) {
     if (!$eq) {
         echo "[-] Card {$rawCard} (Hex: {$hexCard}) detected, but not registered to any equipment in database.\n";
         return;
+    }
+
+    // Timestamp check: Verify that this scan occurred AFTER the asset's last recorded detection!
+    // If the card was swiped on an older reader in the past, it must NOT pull the asset backwards!
+    if (!empty($recordTimestamp) && !empty($eq['rfid_last_detected_at'])) {
+        $recTime = is_numeric($recordTimestamp) ? (int)$recordTimestamp : strtotime($recordTimestamp);
+        $lastDetectedTime = strtotime($eq['rfid_last_detected_at']);
+        
+        if ($recTime <= $lastDetectedTime) {
+            echo "[i] Stale/Past Record Ignored: Card {$rawCard} on {$dahuaIp} has timestamp " . date('Y-m-d H:i:s', $recTime) . " <= asset last detected at {$eq['rfid_last_detected_at']}. Movement skipped.\n";
+            return;
+        }
     }
 
     // 5-second debounce check: if this same card/asset was swiped within the last 5 seconds, ignore duplicate!
@@ -229,19 +241,21 @@ while (true) {
                 $recNo = (int)($parsed["records[{$i}].RecNo"] ?? 0);
                 $cardNo = $parsed["records[{$i}].CardNo"] ?? '';
                 $userId = $parsed["records[{$i}].UserID"] ?? '';
+                $createTime = (int)($parsed["records[{$i}].CreateTime"] ?? $parsed["records[{$i}].CreateTimeRealUTC"] ?? 0);
                 if ($recNo > $maxRecNo) $maxRecNo = $recNo;
 
                 if (!empty($cardNo) || !empty($userId)) {
                     $records[] = [
                         'rec_no' => $recNo,
                         'card_no' => $cardNo,
-                        'user_id' => $userId
+                        'user_id' => $userId,
+                        'create_time' => $createTime
                     ];
                 }
             }
 
-            if ($lastSavedRecVal === false || $lastSavedRecVal === null) {
-                // Initialize setting for this reader
+            if ($lastSavedRecVal === false || $lastSavedRecVal === null || (int)$lastSavedRecVal === 0) {
+                // Initialize setting to maxRecNo so we NEVER replay past records on startup or reconnect!
                 $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES (?, ?, 'hardware', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")
                     ->execute([$settingKey, $maxRecNo, "Last processed RecNo for reader {$curIp}"]);
                 continue;
@@ -261,7 +275,7 @@ while (true) {
                     $effectiveCard = !empty($r['card_no']) ? $r['card_no'] : $r['user_id'];
                     $lastProcessed = $r['rec_no'];
                     $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = ?")->execute([$lastProcessed, $settingKey]);
-                    processCardSwipe($effectiveCard, $pdo, $curIp);
+                    processCardSwipe($effectiveCard, $pdo, $curIp, $r['create_time']);
                 }
             }
 
