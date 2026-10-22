@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import SelectSearch from './SelectSearch';
+import NewReaderModal from './NewReaderModal';
 import { 
   fetchEquipmentDetail, 
   uploadAttachment,
-  updateEquipment 
+  updateEquipment,
+  fetchReaders
 } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
@@ -25,7 +28,8 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   CheckSquare, 
-  Radio 
+  Radio,
+  Plus
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
@@ -49,12 +53,40 @@ export default function EquipmentPassportModal({
   const [rfidAliasInput, setRfidAliasInput] = useState('');
   const [rfidReaderNodeInput, setRfidReaderNodeInput] = useState('DHI-ASI1201M-MEP (192.168.8.108)');
   const [savingRfid, setSavingRfid] = useState(false);
+  const [readers, setReaders] = useState([]);
+  const [isNewReaderModalOpen, setIsNewReaderModalOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen && equipmentId) {
       loadDetail();
+      loadReaders();
     }
   }, [isOpen, equipmentId]);
+
+  const loadReaders = async () => {
+    try {
+      const res = await fetchReaders();
+      if (res && res.data && res.data.length > 0) {
+        setReaders(res.data);
+      } else {
+        // Fallback default options
+        setReaders([
+          { value: 'DHI-ASI1201M-MEP (192.168.8.108)', label: 'Dahua DHI-ASI1201M-MEP (192.168.8.108)', subLabel: 'OT Suite 2 Door Gate • IP: 192.168.8.108' },
+          { value: 'READER-OT-HUB-02 (OT Complex)', label: 'READER-OT-HUB-02 (OT Complex)', subLabel: 'Surgical Pavilion B • 2nd Floor' },
+          { value: 'READER-ICU-NODE-3A (Tower A)', label: 'READER-ICU-NODE-3A (Tower A)', subLabel: 'Critical Care Tower A • 3rd Floor' },
+          { value: 'READER-ER-GATEWAY-1 (Ground Floor)', label: 'READER-ER-GATEWAY-1 (Ground Floor)', subLabel: 'Emergency & Trauma • Ground Floor' }
+        ]);
+      }
+    } catch (err) {
+      console.warn('Could not fetch readers from API, using defaults:', err);
+      setReaders([
+        { value: 'DHI-ASI1201M-MEP (192.168.8.108)', label: 'Dahua DHI-ASI1201M-MEP (192.168.8.108)', subLabel: 'OT Suite 2 Door Gate • IP: 192.168.8.108' },
+        { value: 'READER-OT-HUB-02 (OT Complex)', label: 'READER-OT-HUB-02 (OT Complex)', subLabel: 'Surgical Pavilion B • 2nd Floor' },
+        { value: 'READER-ICU-NODE-3A (Tower A)', label: 'READER-ICU-NODE-3A (Tower A)', subLabel: 'Critical Care Tower A • 3rd Floor' },
+        { value: 'READER-ER-GATEWAY-1 (Ground Floor)', label: 'READER-ER-GATEWAY-1 (Ground Floor)', subLabel: 'Emergency & Trauma • Ground Floor' }
+      ]);
+    }
+  };
 
   const loadDetail = async () => {
     try {
@@ -149,7 +181,8 @@ export default function EquipmentPassportModal({
   const rfidLogs = data?.rfid_logs || [];
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={eq ? `${eq.name} (${eq.asset_id})` : 'Equipment Asset Passport'}
@@ -730,17 +763,26 @@ export default function EquipmentPassportModal({
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '12px' }}>
-                      <label className="form-label" style={{ fontSize: '0.78rem' }}>Access Control Reader Node</label>
-                      <select
-                        className="form-control form-control-sm"
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <label className="form-label" style={{ fontSize: '0.78rem', marginBottom: 0 }}>
+                          Access Control Reader Node
+                        </label>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '2px 8px', fontSize: '0.72rem', height: '24px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          onClick={() => setIsNewReaderModalOpen(true)}
+                        >
+                          <Plus size={12} /> Add Reader Node
+                        </button>
+                      </div>
+                      <SelectSearch
+                        options={readers}
                         value={rfidReaderNodeInput}
-                        onChange={(e) => setRfidReaderNodeInput(e.target.value)}
-                      >
-                        <option value="DHI-ASI1201M-MEP (192.168.8.108)">Dahua DHI-ASI1201M-MEP (192.168.8.108)</option>
-                        <option value="READER-OT-HUB-02 (OT Complex)">READER-OT-HUB-02 (OT Complex)</option>
-                        <option value="READER-ICU-NODE-3A (Tower A)">READER-ICU-NODE-3A (Tower A)</option>
-                        <option value="READER-ER-GATEWAY-1 (Ground Floor)">READER-ER-GATEWAY-1 (Ground Floor)</option>
-                      </select>
+                        onChange={(val) => setRfidReaderNodeInput(val)}
+                        placeholder="Search Access Control Reader Node..."
+                        subLabelKey="subLabel"
+                      />
                     </div>
 
                     <button
@@ -1054,6 +1096,18 @@ export default function EquipmentPassportModal({
         )}
       </>
     )}
-  </Modal>
+    </Modal>
+    <NewReaderModal
+      isOpen={isNewReaderModalOpen}
+      onClose={() => setIsNewReaderModalOpen(false)}
+      onSuccess={(newReader) => {
+        loadReaders();
+        if (newReader && newReader.name) {
+          setRfidReaderNodeInput(newReader.name);
+        }
+      }}
+      onShowToast={onShowToast}
+    />
+  </>
   );
 }

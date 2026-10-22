@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import SelectSearch from './SelectSearch';
+import NewReaderModal from './NewReaderModal';
 import { 
   createEquipment, 
   fetchEquipmentTypes, 
   fetchDepartments, 
-  fetchVendors 
+  fetchVendors,
+  fetchReaders
 } from '../services/api';
 import { 
   PlusCircle, 
@@ -33,6 +35,8 @@ export default function NewEquipmentModal({
   const [types, setTypes] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [readers, setReaders] = useState([]);
+  const [isNewReaderModalOpen, setIsNewReaderModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -50,6 +54,8 @@ export default function NewEquipmentModal({
     room_number: '',
     bed_slot: '',
     rfid_tag_id: '',
+    rfid_card_alias: '',
+    rfid_reader_node: 'DHI-ASI1201M-MEP (192.168.8.108)',
     vendor_id: 1,
     po_number: '',
     invoice_number: '',
@@ -90,18 +96,40 @@ export default function NewEquipmentModal({
   const loadDropdowns = async () => {
     try {
       setLoading(true);
-      const [typeRes, deptRes, vendRes] = await Promise.all([
+      const [typeRes, deptRes, vendRes, readerRes] = await Promise.all([
         fetchEquipmentTypes(),
         fetchDepartments(),
-        fetchVendors()
+        fetchVendors(),
+        fetchReaders().catch(() => ({ data: [] }))
       ]);
       setTypes(typeRes.data || []);
       setDepartments(deptRes.data || []);
       setVendors(vendRes.data || []);
+      if (readerRes && readerRes.data && readerRes.data.length > 0) {
+        setReaders(readerRes.data);
+      } else {
+        setReaders([
+          { value: 'DHI-ASI1201M-MEP (192.168.8.108)', label: 'Dahua DHI-ASI1201M-MEP (192.168.8.108)', subLabel: 'OT Suite 2 Door Gate • IP: 192.168.8.108' },
+          { value: 'READER-OT-HUB-02 (OT Complex)', label: 'READER-OT-HUB-02 (OT Complex)', subLabel: 'Surgical Pavilion B • 2nd Floor' },
+          { value: 'READER-ICU-NODE-3A (Tower A)', label: 'READER-ICU-NODE-3A (Tower A)', subLabel: 'Critical Care Tower A • 3rd Floor' },
+          { value: 'READER-ER-GATEWAY-1 (Ground Floor)', label: 'READER-ER-GATEWAY-1 (Ground Floor)', subLabel: 'Emergency & Trauma • Ground Floor' }
+        ]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadReadersList = async () => {
+    try {
+      const res = await fetchReaders();
+      if (res && res.data && res.data.length > 0) {
+        setReaders(res.data);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -169,7 +197,8 @@ export default function NewEquipmentModal({
   }));
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Add Biomedical Equipment Master"
@@ -438,6 +467,62 @@ export default function NewEquipmentModal({
               />
             </div>
           </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">RFID Tag UID (Hex / EPC)</label>
+              <input
+                type="text"
+                className="form-control"
+                name="rfid_tag_id"
+                placeholder="e.g. 6F4244DB"
+                value={formData.rfid_tag_id}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Card Alias / Code</label>
+              <input
+                type="text"
+                className="form-control"
+                name="rfid_card_alias"
+                placeholder="e.g. BMEOTANES008"
+                value={formData.rfid_card_alias}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="form-group">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Access Reader Node</label>
+                <button
+                  type="button"
+                  onClick={() => setIsNewReaderModalOpen(true)}
+                  style={{ 
+                    background: 'transparent', 
+                    border: 'none', 
+                    color: 'var(--color-primary)', 
+                    cursor: 'pointer', 
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}
+                >
+                  <Plus size={12} /> Add Node
+                </button>
+              </div>
+              <SelectSearch
+                options={readers}
+                value={formData.rfid_reader_node}
+                onChange={(val) => setFormData(prev => ({ ...prev, rfid_reader_node: val }))}
+                placeholder="Select Reader Node..."
+                subLabelKey="subLabel"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Section 3: Purchase & Financials */}
@@ -654,5 +739,17 @@ export default function NewEquipmentModal({
         </div>
       </form>
     </Modal>
+    <NewReaderModal
+      isOpen={isNewReaderModalOpen}
+      onClose={() => setIsNewReaderModalOpen(false)}
+      onSuccess={(newReader) => {
+        loadReadersList();
+        if (newReader && newReader.name) {
+          setFormData(prev => ({ ...prev, rfid_reader_node: newReader.name }));
+        }
+      }}
+      onShowToast={onShowToast}
+    />
+  </>
   );
 }

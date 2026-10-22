@@ -313,3 +313,35 @@ stop_localhost_2020.bat
    - **Background Daemon (`backend/scripts/dahua_listener.php`):** Continuous background service querying reader access records and streaming updates in real time.
    - **Ingestion & Sync API (`backend/api/dahua_rfid_receiver.php`):** Provides `/api/dahua_rfid_receiver.php?action=status`, `action=poll`, and `action=test_swipe`.
 
+---
+
+## 18. Access Control Reader Node Select2 & Dynamic Registration
+
+1. **Database Master (`rfid_readers`):**
+   - Table storing reader hardware nodes: `reader_code`, `name`, `device_model`, `ip_address`, `port`, `reader_type`, `department_id`, `door_zone`, `building`, `floor`, `is_active`.
+   - Seeded nodes:
+     - `DHI-ASI1201M-MEP (192.168.8.108)` — Operation Theatre Exit Gate
+     - `READER-OT-HUB-02` — Surgical Pavilion B, 2nd Floor
+     - `READER-ICU-NODE-3A` — Critical Care Tower A, 3rd Floor
+     - `READER-ER-GATEWAY-1` — Emergency & Trauma Ground Floor
+
+2. **Backend API (`backend/api/rfid_readers.php`):**
+   - `GET /api/rfid_readers.php`: Returns reader list formatted for Select2 with `value`, `label`, and `subLabel` (`{door_zone} • IP: {ip_address}`).
+   - `POST /api/rfid_readers.php`: Registers a new access control / RFID reader node into the master table.
+
+3. **Frontend Select2 Component (`SelectSearch.jsx`):**
+   - Filterable searchable dropdown with instant type-to-filter search input, clear button, and secondary sub-label badges.
+
+4. **Dynamic New Reader Modal (`NewReaderModal.jsx`):**
+   - Dedicated modal allowing users to register new access controllers by specifying:
+     - Reader Name & Device Model (e.g. Dahua DHI-ASI1201M-MEP / UHF Gateway Antenna)
+     - IP Address & HTTP/SDK Port
+     - Department, Building, Floor & Monitored Door Zone
+   - Instantly refreshes dropdown lists and auto-selects newly registered nodes.
+
+5. **Integrated Across System:**
+   - **Equipment Passport Modal (`EquipmentPassportModal.jsx` - Tab 6):** Select2 reader selector with `+ Add Reader Node` button.
+   - **RFID Zone Relocator Modal (`RfidScanModal.jsx`):** Select2 reader selector with `+ Add Reader Node` button.
+   - **New Equipment Master Modal (`NewEquipmentModal.jsx`):** Select2 reader selector with `+ Add Node` button.
+   - **RFID Live Tracking View (`RfidView.jsx`):** `+ Add Reader Node` button in dashboard header.
+

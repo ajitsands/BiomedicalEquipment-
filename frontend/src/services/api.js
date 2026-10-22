@@ -319,6 +319,23 @@ export async function setEquipmentTransitStatus(equipmentId, direction = 'IN') {
   return json;
 }
 
+export async function fetchReaders() {
+  const res = await fetch(`${API_BASE}/rfid_readers.php`);
+  if (!res.ok) throw new Error('Failed to fetch reader nodes');
+  return res.json();
+}
+
+export async function createReader(data) {
+  const res = await fetch(`${API_BASE}/rfid_readers.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to register reader node');
+  return json;
+}
+
 export async function fetchComplaintCodes() {
   const res = await fetch(`${API_BASE}/complaint_codes.php`);
   if (!res.ok) throw new Error('Failed to fetch complaint codes');

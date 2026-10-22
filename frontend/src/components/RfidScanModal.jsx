@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import SelectSearch from './SelectSearch';
+import NewReaderModal from './NewReaderModal';
 import { 
   scanRfidTag, 
   fetchEquipments, 
-  fetchDepartments 
+  fetchDepartments,
+  fetchReaders
 } from '../services/api';
-import { Radio, MapPin, Scan, CheckCircle2 } from 'lucide-react';
+import { Radio, MapPin, Scan, CheckCircle2, Plus } from 'lucide-react';
 
 export default function RfidScanModal({
   isOpen,
@@ -17,6 +19,8 @@ export default function RfidScanModal({
 }) {
   const [equipments, setEquipments] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [readers, setReaders] = useState([]);
+  const [isNewReaderModalOpen, setIsNewReaderModalOpen] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [departmentId, setDepartmentId] = useState(1);
@@ -50,12 +54,34 @@ export default function RfidScanModal({
 
   const loadData = async () => {
     try {
-      const [eqRes, deptRes] = await Promise.all([
+      const [eqRes, deptRes, readerRes] = await Promise.all([
         fetchEquipments(),
-        fetchDepartments()
+        fetchDepartments(),
+        fetchReaders().catch(() => ({ data: [] }))
       ]);
       setEquipments(eqRes.data || []);
       setDepartments(deptRes.data || []);
+      if (readerRes && readerRes.data && readerRes.data.length > 0) {
+        setReaders(readerRes.data);
+      } else {
+        setReaders([
+          { value: 'DHI-ASI1201M-MEP', label: 'DHI-ASI1201M-MEP (192.168.8.108)', ip_address: '192.168.8.108', subLabel: 'OT Suite 2 Door Gate • IP: 192.168.8.108' },
+          { value: 'READER-OT-HUB-02', label: 'READER-OT-HUB-02 (OT Complex)', ip_address: '192.168.8.109', subLabel: 'Surgical Pavilion B • 2nd Floor' },
+          { value: 'READER-ICU-NODE-3A', label: 'READER-ICU-NODE-3A (Tower A)', ip_address: '192.168.8.110', subLabel: 'Critical Care Tower A • 3rd Floor' },
+          { value: 'READER-ER-GATEWAY-1', label: 'READER-ER-GATEWAY-1 (Ground Floor)', ip_address: '192.168.8.111', subLabel: 'Emergency & Trauma • Ground Floor' }
+        ]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadReadersList = async () => {
+    try {
+      const res = await fetchReaders();
+      if (res && res.data && res.data.length > 0) {
+        setReaders(res.data);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -139,7 +165,8 @@ export default function RfidScanModal({
   }));
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="RFID Tag Live Reader & Scanner Simulator"
@@ -187,22 +214,29 @@ export default function RfidScanModal({
 
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">RFID Reader Node</label>
-            <select 
-              className="form-control"
-              value={readerId} 
-              onChange={(e) => {
-                setReaderId(e.target.value);
-                if (e.target.value === 'DHI-ASI1201M-MEP') {
-                  setReaderIp('192.168.8.108');
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>RFID Reader Node</label>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '2px 8px', fontSize: '0.72rem', height: '22px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                onClick={() => setIsNewReaderModalOpen(true)}
+              >
+                <Plus size={12} /> Add Reader Node
+              </button>
+            </div>
+            <SelectSearch
+              options={readers}
+              value={readerId}
+              onChange={(val, opt) => {
+                setReaderId(val);
+                if (opt && opt.ip_address) {
+                  setReaderIp(opt.ip_address);
                 }
               }}
-            >
-              <option value="DHI-ASI1201M-MEP">Dahua DHI-ASI1201M-MEP (192.168.8.108)</option>
-              <option value="READER-OT-HUB-02">READER-OT-HUB-02 (OT Complex)</option>
-              <option value="READER-ICU-NODE-3A">READER-ICU-NODE-3A (ICU Tower A)</option>
-              <option value="READER-ER-GATEWAY-1">READER-ER-GATEWAY-1 (Trauma Ground)</option>
-            </select>
+              placeholder="Select RFID Reader Node..."
+              subLabelKey="subLabel"
+            />
           </div>
 
           <div className="form-group">
@@ -264,5 +298,18 @@ export default function RfidScanModal({
         </div>
       </form>
     </Modal>
+    <NewReaderModal
+      isOpen={isNewReaderModalOpen}
+      onClose={() => setIsNewReaderModalOpen(false)}
+      onSuccess={(newReader) => {
+        loadReadersList();
+        if (newReader && newReader.value) {
+          setReaderId(newReader.value);
+          if (newReader.ip_address) setReaderIp(newReader.ip_address);
+        }
+      }}
+      onShowToast={onShowToast}
+    />
+  </>
   );
 }

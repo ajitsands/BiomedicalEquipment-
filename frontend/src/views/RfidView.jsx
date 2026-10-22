@@ -25,9 +25,11 @@ import {
   RefreshCw,
   Sliders,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import NewReaderModal from '../components/NewReaderModal';
 
 export default function RfidView({
   onViewPassport,
@@ -45,6 +47,7 @@ export default function RfidView({
   const [autoPoll, setAutoPoll] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isTapping, setIsTapping] = useState(false);
+  const [isNewReaderModalOpen, setIsNewReaderModalOpen] = useState(false);
   const autoPollRef = useRef(autoPoll);
 
   useEffect(() => {
@@ -219,6 +222,16 @@ export default function RfidView({
           >
             <RefreshCw size={14} className={isSyncing ? 'spin-icon' : ''} />
             Sync Now
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setIsNewReaderModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+          >
+            <Plus size={14} />
+            Add Reader Node
           </button>
 
           <button
@@ -598,6 +611,20 @@ export default function RfidView({
           </table>
         </div>
       </div>
+
+      <NewReaderModal
+        isOpen={isNewReaderModalOpen}
+        onClose={() => setIsNewReaderModalOpen(false)}
+        onSuccess={() => {
+          loadRfidData();
+          onShowToast && onShowToast({
+            type: 'success',
+            title: 'Reader Configured',
+            message: 'New access control reader node registered.'
+          });
+        }}
+        onShowToast={onShowToast}
+      />
     </div>
   );
 }
