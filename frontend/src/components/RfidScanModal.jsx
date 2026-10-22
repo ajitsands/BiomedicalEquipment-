@@ -25,7 +25,7 @@ export default function RfidScanModal({
   const [room, setRoom] = useState('ICU Room 303 (Relocated)');
   const [readerId, setReaderId] = useState('DHI-ASI1201M-MEP');
   const [readerIp, setReaderIp] = useState('192.168.8.108');
-  const [movementDirection, setMovementDirection] = useState('AUTO');
+  const [movementDirection, setMovementDirection] = useState('IN');
   const [signalStrength, setSignalStrength] = useState(-52);
   const [scanning, setScanning] = useState(false);
 
@@ -39,6 +39,12 @@ export default function RfidScanModal({
     if (preselectedEquipment) {
       setSelectedEquipmentId(preselectedEquipment.id);
       setSelectedTag(preselectedEquipment.rfid_tag_id);
+      if (preselectedEquipment.department_id) {
+        setDepartmentId(preselectedEquipment.department_id);
+      }
+      if (preselectedEquipment.room_number) {
+        setRoom(preselectedEquipment.room_number);
+      }
     }
   }, [preselectedEquipment]);
 
@@ -59,6 +65,8 @@ export default function RfidScanModal({
     setSelectedEquipmentId(val);
     if (opt) {
       setSelectedTag(opt.rfid_tag_id);
+      if (opt.department_id) setDepartmentId(opt.department_id);
+      if (opt.room_number) setRoom(opt.room_number);
     }
   };
 
@@ -69,6 +77,18 @@ export default function RfidScanModal({
     if (d) {
       setBuilding(d.building);
       setFloor(d.floor);
+      // Auto-suggest appropriate room for the chosen department
+      if (d.name.includes('Outpatient') || d.code === 'OPD') {
+        setRoom('OPD Consultation Room 102');
+      } else if (d.name.includes('Operation') || d.code === 'OT') {
+        setRoom('OT Suite 2');
+      } else if (d.name.includes('Intensive Care') || d.code === 'ICU') {
+        setRoom('ICU Bay 1');
+      } else if (d.name.includes('Emergency') || d.code === 'ER') {
+        setRoom('Trauma Bay 01');
+      } else {
+        setRoom(`${d.name} Station`);
+      }
     }
   };
 
@@ -186,15 +206,15 @@ export default function RfidScanModal({
           </div>
 
           <div className="form-group">
-            <label className="form-label">Door Movement Direction</label>
+            <label className="form-label">Asset Presence in Department</label>
             <select 
               className="form-control"
               value={movementDirection}
               onChange={(e) => setMovementDirection(e.target.value)}
             >
-              <option value="AUTO">Auto Toggle (IN ↔ OUT)</option>
-              <option value="IN">🟢 Moving IN (Inside Department)</option>
-              <option value="OUT">🟠 Moving OUT (Exiting Door / Transit)</option>
+              <option value="IN">🟢 Present IN Department (Placed in Room)</option>
+              <option value="OUT">🟠 Moving OUT (In Transit / Corridor Gate)</option>
+              <option value="AUTO">⚡ Auto Toggle (Invert Current State)</option>
             </select>
           </div>
         </div>

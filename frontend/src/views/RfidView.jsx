@@ -5,7 +5,8 @@ import {
   fetchRfidLogs,
   fetchDahuaStatus,
   pollDahuaReader,
-  triggerDahuaTap
+  triggerDahuaTap,
+  setEquipmentTransitStatus
 } from '../services/api';
 import { 
   Radio, 
@@ -140,6 +141,24 @@ export default function RfidView({
       });
     } finally {
       setIsTapping(false);
+    }
+  };
+
+  const handleToggleAssetStatus = async (eqId, targetDirection, eqName) => {
+    try {
+      const res = await setEquipmentTransitStatus(eqId, targetDirection);
+      onShowToast && onShowToast({
+        type: 'success',
+        title: `Status Updated (${targetDirection})`,
+        message: `${eqName || 'Asset'} is now marked ${targetDirection === 'IN' ? '🟢 IN Department' : '🟠 OUT / In Transit'}`
+      });
+      await loadRfidData();
+    } catch (err) {
+      onShowToast && onShowToast({
+        type: 'error',
+        title: 'Status Update Failed',
+        message: err.message || 'Could not update asset presence status'
+      });
     }
   };
 
@@ -319,22 +338,43 @@ export default function RfidView({
 
             {/* Live Location & Direction Status Badge */}
             <div style={{ textAlign: 'right' }}>
-              <div style={{ marginBottom: '4px' }}>
-                <span className={`badge ${isAnesIn ? 'badge-success' : 'badge-warning'}`} style={{ 
-                  fontSize: '0.85rem', 
-                  padding: '6px 12px', 
-                  fontWeight: 800,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginBottom: '4px' }}>
+                <button
+                  type="button"
+                  className={`badge ${isAnesIn ? 'badge-success' : 'badge-warning'}`}
+                  style={{ 
+                    fontSize: '0.85rem', 
+                    padding: '6px 12px', 
+                    fontWeight: 800,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    border: 'none'
+                  }}
+                  title="Click to toggle between IN and OUT"
+                  onClick={() => handleToggleAssetStatus(anesWorkstation.id, isAnesIn ? 'OUT' : 'IN', anesWorkstation.name)}
+                >
                   <span className="badge-dot" style={{ backgroundColor: isAnesIn ? '#16a34a' : '#d97706' }} />
-                  {isAnesIn ? '🟢 IN DEPARTMENT' : '🟠 OUT OF DEPARTMENT (TRANSIT)'}
-                </span>
+                  {isAnesIn ? '🟢 IN DEPARTMENT' : '🟠 OUT (IN TRANSIT)'}
+                </button>
+
+                {!isAnesIn && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-success"
+                    style={{ padding: '5px 12px', fontSize: '0.8rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                    onClick={() => handleToggleAssetStatus(anesWorkstation.id, 'IN', anesWorkstation.name)}
+                    title="Mark equipment as present inside current department"
+                  >
+                    <CheckCircle2 size={14} />
+                    Set IN Department
+                  </button>
+                )}
               </div>
 
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Current Location: <strong style={{ color: 'var(--text-primary)' }}>{anesWorkstation.room_number || 'OT Suite 2'}</strong> ({anesWorkstation.floor || '2nd Floor'})
+                Current Location: <strong style={{ color: 'var(--text-primary)' }}>{anesWorkstation.room_number || 'Station 1'}</strong> ({anesWorkstation.floor || 'Current Floor'})
               </div>
             </div>
           </div>
@@ -439,9 +479,22 @@ export default function RfidView({
                         </div>
 
                         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                          <span className={`badge ${isEqIn ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.7rem' }}>
+                          <button
+                            type="button"
+                            className={`badge ${isEqIn ? 'badge-success' : 'badge-warning'}`}
+                            style={{ 
+                              fontSize: '0.72rem', 
+                              cursor: 'pointer', 
+                              border: 'none', 
+                              padding: '3px 8px', 
+                              fontWeight: 700,
+                              borderRadius: 'var(--radius-sm)'
+                            }}
+                            title={`Click to mark as ${isEqIn ? 'OUT (In Transit)' : 'IN (Present in this Department)'}`}
+                            onClick={() => handleToggleAssetStatus(eq.id, isEqIn ? 'OUT' : 'IN', eq.name)}
+                          >
                             {isEqIn ? '🟢 IN' : '🟠 OUT'}
-                          </span>
+                          </button>
                           <span className={`badge ${
                             eq.status === 'Operational' ? 'badge-neutral' : 
                             eq.status === 'Under Breakdown' ? 'badge-danger' : 'badge-warning'

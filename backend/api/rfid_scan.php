@@ -61,7 +61,6 @@ if ($method === 'GET') {
         }
 
         if (!$equipment && !empty($rawCard)) {
-            // Check direct match on tag, alias, hex
             $stmt = $pdo->prepare("SELECT * FROM equipments WHERE 
                 rfid_tag_id = ? 
                 OR rfid_card_hex = ? 
@@ -80,48 +79,57 @@ if ($method === 'GET') {
         $eqId = (int)$equipment['id'];
         $rfidTag = !empty($equipment['rfid_tag_id']) ? $equipment['rfid_tag_id'] : $rawCard;
 
-        // 2. Resolve Reader & Network details (Default to Dahua DHI-ASI1201M-MEP at 192.168.8.108)
+        // 2. Resolve Reader & Network details
         $readerId = $input['reader_id'] ?? 'DHI-ASI1201M-MEP';
         $readerIp = $input['reader_ip'] ?? '192.168.8.108';
-        $rssi = (int)($input['signal_strength_rssi'] ?? -52);
+        $rssi = (int)($input['signal_strength_rssi'] ?? -50);
 
-        // 3. Determine IN / OUT Door Toggle State
+        // 3. Resolve Target Department
+        $departmentId = !empty($input['department_id']) ? (int)$input['department_id'] : (int)($equipment['department_id'] ?? 2);
+        $deptStmt = $pdo->prepare("SELECT name, building, floor FROM departments WHERE id = ?");
+        $deptStmt->execute([$departmentId]);
+        $deptRow = $deptStmt->fetch();
+        $targetDeptName = $deptRow ? $deptRow['name'] : ($input['department_name'] ?? 'Department');
+
+        // 4. Determine Direction (IN or OUT)
         $currentTransit = strtoupper($equipment['transit_status'] ?? 'IN');
 
         if (!empty($input['movement_direction'])) {
-            $newDirection = strtoupper(trim($input['movement_direction'])) === 'OUT' ? 'OUT' : 'IN';
+            $newDirection = (strtoupper(trim($input['movement_direction'])) === 'OUT') ? 'OUT' : 'IN';
+        } elseif (!empty($input['department_id']) || !empty($input['room_number'])) {
+            // Relocator modal action: default to IN when moving to a new department/room
+            $newDirection = 'IN';
         } else {
-            // Automatic Door Toggle:
-            // If current is IN -> swiping card means it moves OUT
-            // If current is OUT -> swiping card means it moves back IN
+            // Automatic door swipe toggle
             $newDirection = ($currentTransit === 'IN') ? 'OUT' : 'IN';
         }
 
         $newTransitStatus = $newDirection;
 
-        if ($newDirection === 'OUT') {
-            // Equipment has exited through the door
-            $building = $input['building'] ?? 'Surgical Pavilion B';
-            $floor = $input['floor'] ?? '2nd Floor';
-            $departmentName = $input['department_name'] ?? 'In Transit / Corridor';
-            $room = $input['room_number'] ?? 'OT Exit Gate (Outside Department / In Transit)';
-            $departmentId = !empty($input['department_id']) ? (int)$input['department_id'] : 2;
-            $msg = "{$equipment['name']} ({$equipment['asset_id']}) has EXITED through OT Door (OUT of Department).";
+        // 5. Resolve Room and Location text
+        if (!empty($input['room_number'])) {
+            $room = trim($input['room_number']);
+        } elseif ($newDirection === 'OUT') {
+            $room = 'OT Exit Gate (Outside Department / In Transit)';
         } else {
-            // Equipment has entered back into Department
-            $building = $input['building'] ?? 'Surgical Pavilion B';
-            $floor = $input['floor'] ?? '2nd Floor';
-            $departmentName = $input['department_name'] ?? 'Operation Theatre Complex (OT)';
-            $room = $input['room_number'] ?? 'OT Suite 2 (Inside Department)';
-            $departmentId = !empty($input['department_id']) ? (int)$input['department_id'] : 2;
-            $msg = "{$equipment['name']} ({$equipment['asset_id']}) has ENTERED and is now IN Department (OT Suite 2).";
+            $room = ($departmentId === 2) ? 'OT Suite 2 (Inside Department)' : ($equipment['room_number'] ?? 'Station 1');
+        }
+
+        $building = !empty($input['building']) ? $input['building'] : ($deptRow['building'] ?? $equipment['building'] ?? 'Main Hospital Block');
+        $floor = !empty($input['floor']) ? $input['floor'] : ($deptRow['floor'] ?? $equipment['floor'] ?? 'Ground Floor');
+        $departmentName = ($newDirection === 'OUT' && empty($input['department_id'])) ? 'In Transit / Corridor' : $targetDeptName;
+
+        if ($newDirection === 'OUT') {
+            $msg = "{$equipment['name']} ({$equipment['asset_id']}) is now OUT / In Transit.";
+        } else {
+            $msg = "{$equipment['name']} ({$equipment['asset_id']}) is now IN {$departmentName} ({$room}).";
         }
 
         $readerNodeLabel = "{$readerId} ({$readerIp})";
 
         $pdo->beginTransaction();
 
-        // 4. Insert Audit Log
+        // 6. Insert Audit Log
         $stmtLog = $pdo->prepare("INSERT INTO rfid_scan_logs (
             equipment_id, rfid_tag_id, raw_card_number, movement_direction,
             reader_id, reader_ip, detected_building, detected_floor,
@@ -144,7 +152,7 @@ if ($method === 'GET') {
 
         $logId = $pdo->lastInsertId();
 
-        // 5. Update Equipment Live Location & Transit Status
+        // 7. Update Equipment Live Location & Transit Status
         $stmtUpdate = $pdo->prepare("UPDATE equipments SET 
             building = ?,
             floor = ?,

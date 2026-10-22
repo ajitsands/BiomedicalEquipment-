@@ -305,6 +305,20 @@ export async function triggerDahuaTap(cardNumber = '6F4244DB') {
   return json;
 }
 
+export async function setEquipmentTransitStatus(equipmentId, direction = 'IN') {
+  const res = await fetch(`${API_BASE}/rfid_scan.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      equipment_id: equipmentId,
+      movement_direction: direction
+    })
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update transit status');
+  return json;
+}
+
 export async function fetchComplaintCodes() {
   const res = await fetch(`${API_BASE}/complaint_codes.php`);
   if (!res.ok) throw new Error('Failed to fetch complaint codes');
