@@ -345,3 +345,24 @@ stop_localhost_2020.bat
    - **New Equipment Master Modal (`NewEquipmentModal.jsx`):** Select2 reader selector with `+ Add Node` button.
    - **RFID Live Tracking View (`RfidView.jsx`):** `+ Add Reader Node` button in dashboard header.
 
+---
+
+## 19. Multi-Asset Dynamic RFID Card Resolution & Collision Prevention
+
+1. **Root Cause Analysis:**
+   - The initial prototype specifically linked the physical Dahua reader at `192.168.8.108` and Card `6F4244DB` to `BME-OT-ANES-008` (*Anesthesia Workstation OT-2*).
+   - In `backend/scripts/dahua_listener.php` and `backend/api/dahua_rfid_receiver.php`, card events were querying `WHERE asset_id = 'BME-OT-ANES-008'`.
+   - When the user assigned Card `6F4244DB` to `BME-OT-ESU-007` (*Electrosurgical Generator Unit (Diathermy)*), both equipments had `6F4244DB`, and the hardcoded asset ID prevented `BME-OT-ESU-007` from triggering.
+
+2. **Resolution & Modern Multi-Asset Engine:**
+   - **Fully Dynamic Equipment Resolution:**
+     All Dahua swipe events (`dahua_listener.php`, `dahua_rfid_receiver.php`, `rfid_scan.php`) now resolve the target asset dynamically by looking up `rfid_tag_id`, `rfid_card_hex`, or `rfid_card_alias`, supporting both Hex and Decimal Wiegand representations.
+   - **Unique Card Assignment & Collision Guard:**
+     In `backend/api/equipments.php`, when updating an equipment's RFID tag, any previous equipment sharing that card is automatically cleared, ensuring clean 1:1 mapping between physical RFID tags and biomedical assets.
+   - **Home Room Preservation:**
+     When entering `IN`, the asset returns to its own designated room (e.g. `OT Suite 3` for Diathermy, `OT Suite 2` for Anesthesia), and relocates to `OT Exit Gate / Corridor` when exiting `OUT`.
+   - **Dynamic Dahua Live Panel:**
+     `RfidView.jsx` dynamically displays whichever asset is linked to the reader's active card, providing 1-click test toggling and instant live status reflection.
+   - **Background Daemon Restart:**
+     Restarted `dahua_listener.php` with the new dynamic engine.
+

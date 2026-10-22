@@ -61,14 +61,17 @@ if ($method === 'GET') {
         }
 
         if (!$equipment && !empty($rawCard)) {
+            $hexCard = (is_numeric($rawCard) && (int)$rawCard > 100000) ? strtoupper(dechex((int)$rawCard)) : strtoupper($rawCard);
             $stmt = $pdo->prepare("SELECT * FROM equipments WHERE 
                 rfid_tag_id = ? 
                 OR rfid_card_hex = ? 
                 OR rfid_card_alias = ? 
+                OR rfid_tag_id = ?
+                OR rfid_card_hex = ?
                 OR asset_id = ?
-                OR (? IN ('6F4244DB', 'FFCD3BDB', '1866613979', 'BMEOTANES008', 'bmeotanes008') AND asset_id = 'BME-OT-ANES-008')
+                ORDER BY (rfid_tag_id = ? OR rfid_card_hex = ?) DESC, id DESC
                 LIMIT 1");
-            $stmt->execute([$rawCard, $rawCard, $rawCard, $rawCard, $rawCard]);
+            $stmt->execute([$rawCard, $rawCard, $rawCard, $hexCard, $hexCard, $rawCard, $rawCard, $rawCard]);
             $equipment = $stmt->fetch();
         }
 

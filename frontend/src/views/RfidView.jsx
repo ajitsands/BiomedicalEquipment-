@@ -165,9 +165,12 @@ export default function RfidView({
     }
   };
 
-  // Find Anesthesia Workstation OT-2 tracked by Dahua reader
-  const anesWorkstation = equipments.find(e => e.asset_id === 'BME-OT-ANES-008') || (dahuaData?.tracked_asset);
-  const isAnesIn = anesWorkstation ? (anesWorkstation.transit_status === 'IN') : true;
+  // Dynamic active asset associated with Dahua reader / card 6F4244DB
+  const activeAsset = equipments.find(e => e.rfid_tag_id === '6F4244DB' || e.rfid_card_hex === '6F4244DB') 
+    || (dahuaData?.tracked_asset) 
+    || equipments.find(e => e.asset_id === 'BME-OT-ESU-007') 
+    || equipments.find(e => e.asset_id === 'BME-OT-ANES-008');
+  const isActiveAssetIn = activeAsset ? (activeAsset.transit_status === 'IN') : true;
 
   // Filter equipments for zone directory
   const filteredEquipments = equipments.filter(eq => {
@@ -281,7 +284,7 @@ export default function RfidView({
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => handleTriggerDahuaTap('6F4244DB')}
+              onClick={() => handleTriggerDahuaTap(activeAsset?.rfid_tag_id || '6F4244DB')}
               disabled={isTapping}
               style={{
                 boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)',
@@ -291,18 +294,18 @@ export default function RfidView({
             >
               {isTapping ? (
                 <RefreshCw size={16} className="spin-icon" />
-              ) : isAnesIn ? (
+              ) : isActiveAssetIn ? (
                 <DoorOpen size={16} />
               ) : (
                 <DoorClosed size={16} />
               )}
-              {isTapping ? 'Processing...' : isAnesIn ? 'Tap Card -> Move OUT of OT' : 'Tap Card -> Move IN to OT'}
+              {isTapping ? 'Processing...' : isActiveAssetIn ? `Tap Card (${activeAsset?.rfid_tag_id || '6F4244DB'}) -> Move OUT` : `Tap Card (${activeAsset?.rfid_tag_id || '6F4244DB'}) -> Move IN`}
             </button>
           </div>
         </div>
 
         {/* Dedicated Tracked Asset Details Card */}
-        {anesWorkstation && (
+        {activeAsset && (
           <div style={{ 
             marginTop: '16px', 
             padding: '14px 18px', 
@@ -320,31 +323,31 @@ export default function RfidView({
                 width: '46px', 
                 height: '46px', 
                 borderRadius: 'var(--radius-md)', 
-                backgroundColor: isAnesIn ? 'rgba(34, 197, 94, 0.12)' : 'rgba(245, 158, 11, 0.15)',
-                color: isAnesIn ? 'var(--color-success)' : '#d97706',
+                backgroundColor: isActiveAssetIn ? 'rgba(34, 197, 94, 0.12)' : 'rgba(245, 158, 11, 0.15)',
+                color: isActiveAssetIn ? 'var(--color-success)' : '#d97706',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0
               }}>
-                {isAnesIn ? <DoorClosed size={24} /> : <DoorOpen size={24} />}
+                {isActiveAssetIn ? <DoorClosed size={24} /> : <DoorOpen size={24} />}
               </div>
 
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span 
                     style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--color-primary)', cursor: 'pointer' }}
-                    onClick={() => onViewPassport(anesWorkstation.id)}
+                    onClick={() => onViewPassport(activeAsset.id)}
                   >
-                    {anesWorkstation.name}
+                    {activeAsset.name}
                   </span>
-                  <code>{anesWorkstation.asset_id}</code>
+                  <code>{activeAsset.asset_id}</code>
                 </div>
 
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  RFID Hex: <code style={{ color: 'var(--color-primary)', fontWeight: 700 }}>6F4244DB</code> • 
-                  Alias: <code>BMEOTANES008</code> • 
-                  Wiegand: <code>1866613979</code>
+                  RFID Hex: <code style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{activeAsset.rfid_tag_id || '6F4244DB'}</code>
+                  {activeAsset.rfid_card_alias && <> • Alias: <code>{activeAsset.rfid_card_alias}</code></>}
+                  {activeAsset.rfid_reader_node && <> • Node: <code>{activeAsset.rfid_reader_node}</code></>}
                 </div>
               </div>
             </div>
@@ -354,7 +357,7 @@ export default function RfidView({
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginBottom: '4px' }}>
                 <button
                   type="button"
-                  className={`badge ${isAnesIn ? 'badge-success' : 'badge-warning'}`}
+                  className={`badge ${isActiveAssetIn ? 'badge-success' : 'badge-warning'}`}
                   style={{ 
                     fontSize: '0.85rem', 
                     padding: '6px 12px', 
@@ -366,18 +369,18 @@ export default function RfidView({
                     border: 'none'
                   }}
                   title="Click to toggle between IN and OUT"
-                  onClick={() => handleToggleAssetStatus(anesWorkstation.id, isAnesIn ? 'OUT' : 'IN', anesWorkstation.name)}
+                  onClick={() => handleToggleAssetStatus(activeAsset.id, isActiveAssetIn ? 'OUT' : 'IN', activeAsset.name)}
                 >
-                  <span className="badge-dot" style={{ backgroundColor: isAnesIn ? '#16a34a' : '#d97706' }} />
-                  {isAnesIn ? '🟢 IN DEPARTMENT' : '🟠 OUT (IN TRANSIT)'}
+                  <span className="badge-dot" style={{ backgroundColor: isActiveAssetIn ? '#16a34a' : '#d97706' }} />
+                  {isActiveAssetIn ? '🟢 IN DEPARTMENT' : '🟠 OUT (IN TRANSIT)'}
                 </button>
 
-                {!isAnesIn && (
+                {!isActiveAssetIn && (
                   <button
                     type="button"
                     className="btn btn-sm btn-success"
                     style={{ padding: '5px 12px', fontSize: '0.8rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                    onClick={() => handleToggleAssetStatus(anesWorkstation.id, 'IN', anesWorkstation.name)}
+                    onClick={() => handleToggleAssetStatus(activeAsset.id, 'IN', activeAsset.name)}
                     title="Mark equipment as present inside current department"
                   >
                     <CheckCircle2 size={14} />
@@ -387,7 +390,7 @@ export default function RfidView({
               </div>
 
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Current Location: <strong style={{ color: 'var(--text-primary)' }}>{anesWorkstation.room_number || 'Station 1'}</strong> ({anesWorkstation.floor || 'Current Floor'})
+                Current Location: <strong style={{ color: 'var(--text-primary)' }}>{activeAsset.room_number || 'Station 1'}</strong> ({activeAsset.floor || 'Current Floor'})
               </div>
             </div>
           </div>

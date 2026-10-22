@@ -62,41 +62,45 @@ function parseDahuaKeyValue($text) {
 // 1. ACTION: Test / Trigger Instant Swipe (Toggle IN <-> OUT)
 if ($action === 'test_swipe' || $action === 'toggle') {
     try {
-        $card = $_GET['card_number'] ?? $_POST['card_number'] ?? '6F4244DB';
+        $card = trim($_GET['card_number'] ?? $_POST['card_number'] ?? '6F4244DB');
         $readerId = 'DHI-ASI1201M-MEP';
         $readerIp = $dahuaIp;
 
-        // Call rfid_scan logic directly
+        $hexCard = (is_numeric($card) && (int)$card > 100000) ? strtoupper(dechex((int)$card)) : strtoupper($card);
+
+        // Dynamic lookup based on any matching RFID tag, hex, or alias
         $stmt = $pdo->prepare("SELECT * FROM equipments WHERE 
             rfid_tag_id = ? 
             OR rfid_card_hex = ? 
             OR rfid_card_alias = ? 
-            OR asset_id = 'BME-OT-ANES-008' 
+            OR rfid_tag_id = ? 
+            OR rfid_card_hex = ? 
+            OR rfid_card_alias = ?
+            ORDER BY (rfid_tag_id = ? OR rfid_card_hex = ?) DESC, id DESC 
             LIMIT 1");
-        $stmt->execute([$card, $card, $card]);
+        $stmt->execute([$card, $card, $card, $hexCard, $hexCard, $hexCard, $card, $hexCard]);
         $eq = $stmt->fetch();
 
         if (!$eq) {
-            jsonError("Target asset BME-OT-ANES-008 not found for card: {$card}", 404);
+            jsonError("No medical equipment registered with RFID Card / UID: {$card}", 404);
         }
 
         $currentTransit = strtoupper($eq['transit_status'] ?? 'IN');
         $newTransit = ($currentTransit === 'IN') ? 'OUT' : 'IN';
 
+        $homeRoom = !empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate') ? $eq['room_number'] : 'OT Suite 3';
+        $building = !empty($eq['building']) ? $eq['building'] : 'Surgical Pavilion B';
+        $floor = !empty($eq['floor']) ? $eq['floor'] : '2nd Floor';
+        $deptId = !empty($eq['department_id']) ? (int)$eq['department_id'] : 2;
+
         if ($newTransit === 'OUT') {
-            $building = 'Surgical Pavilion B';
-            $floor = '2nd Floor';
             $room = 'OT Exit Gate (Outside Department / In Transit)';
             $deptName = 'In Transit / Corridor';
-            $deptId = 2;
             $msg = "{$eq['name']} ({$eq['asset_id']}) has EXITED through OT Door Gate (OUT of Department).";
         } else {
-            $building = 'Surgical Pavilion B';
-            $floor = '2nd Floor';
-            $room = 'OT Suite 2 (Inside Department)';
+            $room = "{$homeRoom} (Inside Department)";
             $deptName = 'Operation Theatre Complex (OT)';
-            $deptId = 2;
-            $msg = "{$eq['name']} ({$eq['asset_id']}) has ENTERED and is now IN Department (OT Suite 2).";
+            $msg = "{$eq['name']} ({$eq['asset_id']}) has ENTERED and is now IN Department ({$homeRoom}).";
         }
 
         $readerNode = "{$readerId} ({$readerIp})";
@@ -214,33 +218,53 @@ if ($action === 'poll' || $action === 'sync') {
             $lastProcessedRecNo = (int)$lastSavedRecVal;
         }
 
-        $targetCards = ['6F4244DB', 'FFCD3BDB', '1866613979', 'BMEOTANES008'];
         $syncedEvent = null;
 
         // Process any new records where rec_no > lastProcessedRecNo
         foreach ($records as $r) {
             if ($r['rec_no'] > $lastProcessedRecNo) {
-                $cardUpper = strtoupper($r['card_no'] ?? '');
-                $userUpper = strtoupper($r['user_id'] ?? '');
-                $matched = in_array($cardUpper, $targetCards) || in_array($userUpper, $targetCards);
+                $rawCard = trim($r['card_no'] ?? '');
+                $rawUser = trim($r['user_id'] ?? '');
 
-                if ($matched) {
-                    $eqStmt = $pdo->prepare("SELECT * FROM equipments WHERE asset_id = 'BME-OT-ANES-008' LIMIT 1");
-                    $eqStmt->execute();
+                if (!empty($rawCard) || !empty($rawUser)) {
+                    $hexCard = (is_numeric($rawCard) && (int)$rawCard > 100000) ? strtoupper(dechex((int)$rawCard)) : strtoupper($rawCard);
+
+                    // Dynamic lookup for ANY equipment registered with this RFID card/hex/alias
+                    $eqStmt = $pdo->prepare("SELECT * FROM equipments WHERE 
+                        rfid_tag_id = ? 
+                        OR rfid_card_hex = ? 
+                        OR rfid_card_alias = ? 
+                        OR rfid_tag_id = ? 
+                        OR rfid_card_hex = ? 
+                        OR rfid_card_alias = ?
+                        OR rfid_tag_id = ?
+                        OR rfid_card_alias = ?
+                        ORDER BY (rfid_tag_id = ? OR rfid_card_hex = ?) DESC, id DESC
+                        LIMIT 1");
+                    $eqStmt->execute([
+                        $rawCard, $rawCard, $rawCard, 
+                        $hexCard, $hexCard, $hexCard, 
+                        $rawUser, $rawUser, 
+                        $hexCard, $hexCard
+                    ]);
                     $eq = $eqStmt->fetch();
 
                     if ($eq) {
                         $currentTransit = strtoupper($eq['transit_status'] ?? 'IN');
                         $newTransit = ($currentTransit === 'IN') ? 'OUT' : 'IN';
 
-                        $building = 'Surgical Pavilion B';
-                        $floor = '2nd Floor';
-                        $room = ($newTransit === 'OUT') 
-                            ? 'OT Exit Gate (Outside Department / In Transit)' 
-                            : 'OT Suite 2 (Inside Department)';
-                        $deptName = ($newTransit === 'OUT') 
-                            ? 'In Transit / Corridor' 
-                            : 'Operation Theatre Complex (OT)';
+                        $homeRoom = !empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate') ? $eq['room_number'] : 'OT Suite 3';
+                        $building = !empty($eq['building']) ? $eq['building'] : 'Surgical Pavilion B';
+                        $floor = !empty($eq['floor']) ? $eq['floor'] : '2nd Floor';
+                        $deptId = !empty($eq['department_id']) ? (int)$eq['department_id'] : 2;
+
+                        if ($newTransit === 'OUT') {
+                            $room = 'OT Exit Gate (Outside Department / In Transit)';
+                            $deptName = 'In Transit / Corridor';
+                        } else {
+                            $room = "{$homeRoom} (Inside Department)";
+                            $deptName = 'Operation Theatre Complex (OT)';
+                        }
 
                         $pdo->beginTransaction();
                         
@@ -253,7 +277,7 @@ if ($action === 'poll' || $action === 'sync') {
                         $logStmt->execute([
                             $eq['id'], 
                             $eq['rfid_tag_id'], 
-                            $r['card_no'], 
+                            $rawCard ?: $rawUser, 
                             $newTransit,
                             $dahuaIp, 
                             $building, 
@@ -263,18 +287,18 @@ if ($action === 'poll' || $action === 'sync') {
                         ]);
 
                         $upStmt = $pdo->prepare("UPDATE equipments SET 
-                            building = ?, floor = ?, room_number = ?, department_id = 2,
+                            building = ?, floor = ?, room_number = ?, department_id = ?,
                             transit_status = ?, rfid_last_detected_at = NOW(),
                             rfid_reader_node = 'DHI-ASI1201M-MEP (192.168.8.108)'
                             WHERE id = ?");
-                        $upStmt->execute([$building, $floor, $room, $newTransit, $eq['id']]);
+                        $upStmt->execute([$building, $floor, $room, $deptId, $newTransit, $eq['id']]);
 
                         $pdo->commit();
 
                         $syncedEvent = [
                             'asset_id' => $eq['asset_id'],
                             'name' => $eq['name'],
-                            'card_no' => $r['card_no'],
+                            'card_no' => $rawCard ?: $rawUser,
                             'rec_no' => $r['rec_no'],
                             'direction' => $newTransit,
                             'room' => $room,
@@ -314,9 +338,14 @@ if ($action === 'status') {
         $isOnline = $sysInfoRes['ok'];
         $sysInfo = $isOnline ? parseDahuaKeyValue($sysInfoRes['response']) : [];
 
-        // Fetch current status of BME-OT-ANES-008
-        $eqStmt = $pdo->prepare("SELECT id, asset_id, name, rfid_tag_id, rfid_card_alias, rfid_card_hex, transit_status, building, floor, room_number, rfid_last_detected_at, rfid_reader_node FROM equipments WHERE asset_id = 'BME-OT-ANES-008' LIMIT 1");
-        $eqStmt->execute();
+        // Fetch currently active/latest tracked asset for Dahua reader (prioritize 6F4244DB or latest detected)
+        $eqStmt = $pdo->query("SELECT id, asset_id, name, rfid_tag_id, rfid_card_alias, rfid_card_hex, transit_status, building, floor, room_number, rfid_last_detected_at, rfid_reader_node 
+            FROM equipments 
+            WHERE rfid_tag_id = '6F4244DB' 
+               OR rfid_reader_node LIKE '%192.168.8.108%' 
+               OR rfid_reader_node LIKE '%DHI-ASI1201M-MEP%'
+            ORDER BY (rfid_tag_id = '6F4244DB') DESC, rfid_last_detected_at DESC, id DESC 
+            LIMIT 1");
         $equipment = $eqStmt->fetch();
 
         if ($equipment && !empty($equipment['rfid_last_detected_at'])) {
@@ -338,8 +367,8 @@ if ($action === 'status') {
             ],
             'tracked_asset' => $equipment,
             'target_rfid' => [
-                'card_hex' => '6F4244DB',
-                'card_alias' => 'BMEOTANES008',
+                'card_hex' => $equipment['rfid_card_hex'] ?? '6F4244DB',
+                'card_alias' => $equipment['rfid_card_alias'] ?? 'BMEOTESU007',
                 'card_decimal' => '1866613979'
             ]
         ]);

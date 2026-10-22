@@ -213,6 +213,12 @@ if ($method === 'GET') {
             jsonError('No fields to update');
         }
 
+        if (!empty($input['rfid_tag_id'])) {
+            $tag = trim($input['rfid_tag_id']);
+            $pdo->prepare("UPDATE equipments SET rfid_tag_id = NULL, rfid_card_hex = NULL WHERE (rfid_tag_id = ? OR rfid_card_hex = ?) AND id != ?")
+                ->execute([$tag, $tag, $id]);
+        }
+
         $params[] = $id;
         $sql = "UPDATE equipments SET " . implode(", ", $updates) . " WHERE id = ?";
         $stmt = $pdo->prepare($sql);
