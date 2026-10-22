@@ -274,11 +274,42 @@ stop_localhost_2020.bat
 
 ---
 
-## 16. Git Repository & Deployment State
+## 16. Git Repository & Locked Release Tag
 
+- **Locked Version:** `v2.0.0` (Tagged and pushed to origin)
 - **Branch:** `v2.0`
 - **Remote:** `https://github.com/ajitsands/BiomedicalEquipment-.git`
-- **Commit:** `79478cf` (*"feat: add Masters for Vendors, Contractors, Suppliers, Employees with credentials, Select2 search, booking audit, service attachments, and unified Masters dropdown menu"*)
-- **Build Status:** Verified production build with `npm run build` (`✓ built in 923ms` with zero errors).
-- **Working Tree:** Clean and fully synchronized with `origin/v2.0`.
+- **Latest Commit:** `ec69edd`
+- **Build Status:** Verified production build with `npm run build` with zero errors.
+
+---
+
+## 17. Dahua DHI-ASI1201M-MEP Access Control & RFID Integration
+
+1. **Hardware Reader & Network Setup:**
+   - **Device Model:** Dahua DHI-ASI1201M-MEP Access Control Terminal
+   - **Network IP:** `192.168.8.108` (Port 80 HTTP, Digest Auth: `admin` / `admin@123`)
+   - **Monitored Gate:** Operation Theatre Complex (OT Exit Gate)
+   - **Connectivity:** Direct LAN verified with 1ms round-trip ping and real-time CGI record polling.
+
+2. **RFID Tag & Asset Linkage:**
+   - **Target Biomedical Asset:** `BME-OT-ANES-008` (*Anesthesia Workstation OT-2*)
+   - **Home Location:** Operation Theatre Complex (OT), Surgical Pavilion B, 2nd Floor, Room: `OT Suite 2`
+   - **Card Hex UID:** `6F4244DB` (also supports Dahua enrolled card `FFCD3BDB`)
+   - **Card Alias / Printed ID:** `BMEOTANES008`
+   - **Wiegand 32/34 Decimal:** `1866613979`
+
+3. **IN / OUT Door Toggle State Machine:**
+   - **Moving OUT:** When card `6F4244DB` is swiped while device is IN $\rightarrow$ Asset relocates to `OT Exit Gate / Corridor Transit`, `transit_status = 'OUT'`, logged in `rfid_scan_logs` with direction `OUT`.
+   - **Moving IN:** When swiped again after some time $\rightarrow$ Asset returns to `OT Suite 2 (Inside Department)`, `transit_status = 'IN'`, logged with direction `IN`.
+
+4. **Timezone & System Setting DateTime Formatting:**
+   - All scan logs and live movement records strictly format timestamps according to the active Regional Settings (`timezone` e.g. `Asia/Bahrain`, `date_format` e.g. `DD/MM/YYYY`, `time_format` e.g. `12h/24h`).
+   - Helper functions: `formatSystemDateTime()` in backend [db.php](file:///e:/medical_equpments/backend/config/db.php) and `formatDateTime()` in frontend [SettingsContext.jsx](file:///e:/medical_equpments/frontend/src/context/SettingsContext.jsx).
+
+5. **Real-time Live Tracking UI & Background Daemon:**
+   - **UI (`RfidView.jsx`):** Real-time auto-polling every 3 seconds so physical reader card taps reflect instantly on screen.
+   - **Interactive Hardware Gateway Card:** Live online ping status, card details, and 1-click test tap button.
+   - **Background Daemon (`backend/scripts/dahua_listener.php`):** Continuous background service querying reader access records and streaming updates in real time.
+   - **Ingestion & Sync API (`backend/api/dahua_rfid_receiver.php`):** Provides `/api/dahua_rfid_receiver.php?action=status`, `action=poll`, and `action=test_swipe`.
 

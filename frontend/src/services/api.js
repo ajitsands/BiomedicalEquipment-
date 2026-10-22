@@ -286,6 +286,25 @@ export async function fetchRfidLogs() {
   return res.json();
 }
 
+export async function fetchDahuaStatus() {
+  const res = await fetch(`${API_BASE}/dahua_rfid_receiver.php?action=status`);
+  if (!res.ok) throw new Error('Failed to fetch Dahua reader status');
+  return res.json();
+}
+
+export async function pollDahuaReader() {
+  const res = await fetch(`${API_BASE}/dahua_rfid_receiver.php?action=poll`);
+  if (!res.ok) throw new Error('Failed to poll Dahua reader');
+  return res.json();
+}
+
+export async function triggerDahuaTap(cardNumber = '6F4244DB') {
+  const res = await fetch(`${API_BASE}/dahua_rfid_receiver.php?action=test_swipe&card_number=${encodeURIComponent(cardNumber)}`);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to trigger Dahua tap');
+  return json;
+}
+
 export async function fetchComplaintCodes() {
   const res = await fetch(`${API_BASE}/complaint_codes.php`);
   if (!res.ok) throw new Error('Failed to fetch complaint codes');

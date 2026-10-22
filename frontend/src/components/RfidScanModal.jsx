@@ -23,8 +23,10 @@ export default function RfidScanModal({
   const [building, setBuilding] = useState('Critical Care Tower A');
   const [floor, setFloor] = useState('3rd Floor');
   const [room, setRoom] = useState('ICU Room 303 (Relocated)');
-  const [readerId, setReaderId] = useState('READER-GATEWAY-ZONE-3B');
-  const [signalStrength, setSignalStrength] = useState(-58);
+  const [readerId, setReaderId] = useState('DHI-ASI1201M-MEP');
+  const [readerIp, setReaderIp] = useState('192.168.8.108');
+  const [movementDirection, setMovementDirection] = useState('AUTO');
+  const [signalStrength, setSignalStrength] = useState(-52);
   const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
@@ -83,6 +85,8 @@ export default function RfidScanModal({
         equipment_id: selectedEquipmentId ? Number(selectedEquipmentId) : undefined,
         rfid_tag_id: selectedTag,
         reader_id: readerId,
+        reader_ip: readerIp,
+        movement_direction: movementDirection === 'AUTO' ? undefined : movementDirection,
         building,
         floor,
         room_number: room,
@@ -163,23 +167,35 @@ export default function RfidScanModal({
 
         <div className="form-row">
           <div className="form-group">
-            <label className="form-label">RFID Antenna Node ID</label>
-            <input
-              type="text"
+            <label className="form-label">RFID Reader Node</label>
+            <select 
               className="form-control"
-              value={readerId}
-              onChange={(e) => setReaderId(e.target.value)}
-            />
+              value={readerId} 
+              onChange={(e) => {
+                setReaderId(e.target.value);
+                if (e.target.value === 'DHI-ASI1201M-MEP') {
+                  setReaderIp('192.168.8.108');
+                }
+              }}
+            >
+              <option value="DHI-ASI1201M-MEP">Dahua DHI-ASI1201M-MEP (192.168.8.108)</option>
+              <option value="READER-OT-HUB-02">READER-OT-HUB-02 (OT Complex)</option>
+              <option value="READER-ICU-NODE-3A">READER-ICU-NODE-3A (ICU Tower A)</option>
+              <option value="READER-ER-GATEWAY-1">READER-ER-GATEWAY-1 (Trauma Ground)</option>
+            </select>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Signal Strength (RSSI)</label>
-            <input
-              type="number"
+            <label className="form-label">Door Movement Direction</label>
+            <select 
               className="form-control"
-              value={signalStrength}
-              onChange={(e) => setSignalStrength(Number(e.target.value))}
-            />
+              value={movementDirection}
+              onChange={(e) => setMovementDirection(e.target.value)}
+            >
+              <option value="AUTO">Auto Toggle (IN ↔ OUT)</option>
+              <option value="IN">🟢 Moving IN (Inside Department)</option>
+              <option value="OUT">🟠 Moving OUT (Exiting Door / Transit)</option>
+            </select>
           </div>
         </div>
 

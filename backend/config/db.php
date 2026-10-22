@@ -59,3 +59,74 @@ function getJsonInput() {
     $decoded = json_decode($raw, true);
     return is_array($decoded) ? $decoded : [];
 }
+
+function getSystemSettings() {
+    global $pdo;
+    static $settingsCache = null;
+    if ($settingsCache !== null) {
+        return $settingsCache;
+    }
+    $settingsCache = [
+        'timezone' => 'Asia/Bahrain',
+        'date_format' => 'DD/MM/YYYY',
+        'time_format' => '12h'
+    ];
+    try {
+        $stmt = $pdo->query("SELECT setting_key, setting_value FROM system_settings");
+        while ($row = $stmt->fetch()) {
+            $settingsCache[$row['setting_key']] = $row['setting_value'];
+        }
+    } catch (Exception $e) {
+        // Fallback
+    }
+    return $settingsCache;
+}
+
+function formatSystemDateTime($timestampStr, $withSeconds = true) {
+    if (empty($timestampStr)) return 'N/A';
+    $settings = getSystemSettings();
+    $tzName = !empty($settings['timezone']) ? $settings['timezone'] : 'Asia/Bahrain';
+    $dateFormat = !empty($settings['date_format']) ? $settings['date_format'] : 'DD/MM/YYYY';
+    $timeFormat = !empty($settings['time_format']) ? $settings['time_format'] : '12h';
+
+    try {
+        $dt = new DateTime($timestampStr);
+        // If timezone needs to be set
+        $targetTz = new DateTimeZone($tzName);
+        $dt->setTimezone($targetTz);
+    } catch (Exception $e) {
+        return $timestampStr;
+    }
+
+    $day = $dt->format('d');
+    $month = $dt->format('m');
+    $monthShort = $dt->format('M');
+    $year = $dt->format('Y');
+
+    switch ($dateFormat) {
+        case 'DD-MMM-YYYY':
+            $datePart = "{$day}-{$monthShort}-{$year}";
+            break;
+        case 'YYYY-MM-DD':
+            $datePart = "{$year}-{$month}-{$day}";
+            break;
+        case 'MM/DD/YYYY':
+            $datePart = "{$month}/{$day}/{$year}";
+            break;
+        case 'DD.MM.YYYY':
+            $datePart = "{$day}.{$month}.{$year}";
+            break;
+        case 'DD/MM/YYYY':
+        default:
+            $datePart = "{$day}/{$month}/{$year}";
+            break;
+    }
+
+    if ($timeFormat === '24h') {
+        $timePart = $withSeconds ? $dt->format('H:i:s') : $dt->format('H:i');
+    } else {
+        $timePart = $withSeconds ? $dt->format('h:i:s A') : $dt->format('h:i A');
+    }
+
+    return "{$datePart}, {$timePart}";
+}
