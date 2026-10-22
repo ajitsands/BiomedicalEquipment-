@@ -363,6 +363,8 @@ stop_localhost_2020.bat
      When entering `IN`, the asset returns to its own designated room (e.g. `OT Suite 3` for Diathermy, `OT Suite 2` for Anesthesia), and relocates to `OT Exit Gate / Corridor` when exiting `OUT`.
    - **Dynamic Dahua Live Panel:**
      `RfidView.jsx` dynamically displays whichever asset is linked to the reader's active card, providing 1-click test toggling and instant live status reflection.
+   - **5-Second Hardware Swipe Debounce:**
+     Introduced a 5-second cooldown window preventing duplicate toggles when both the background listener daemon and the frontend web poller process the same physical card swipe simultaneously.
    - **Background Daemon Restart:**
-     Restarted `dahua_listener.php` with the new dynamic engine.
+     Restarted `dahua_listener.php` with the new dynamic engine and debounce filter.
 
