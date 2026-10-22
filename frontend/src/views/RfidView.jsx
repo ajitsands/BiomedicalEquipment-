@@ -3,7 +3,6 @@ import {
   fetchEquipments, 
   fetchDepartments, 
   fetchRfidLogs,
-  fetchDahuaStatus,
   pollDahuaReader,
   triggerDahuaTap,
   setEquipmentTransitStatus,
@@ -87,17 +86,15 @@ export default function RfidView({
   const loadRfidData = async () => {
     try {
       setLoading(true);
-      const [eqRes, deptRes, logRes, dahuaRes, readersRes] = await Promise.all([
+      const [eqRes, deptRes, logRes, readersRes] = await Promise.all([
         fetchEquipments(),
         fetchDepartments(),
         fetchRfidLogs(),
-        fetchDahuaStatus().catch(() => ({ reader: { is_online: false } })),
         fetchReaders().catch(() => ({ data: [] }))
       ]);
       setEquipments(eqRes.data || []);
       setDepartments(deptRes.data || []);
       setRfidLogs(logRes.data || []);
-      setDahuaData(dahuaRes || null);
       setReaders(readersRes.data || []);
     } catch (err) {
       onShowToast && onShowToast({ type: 'error', title: 'Error', message: 'Failed to load RFID telemetry' });
@@ -108,7 +105,7 @@ export default function RfidView({
 
   const syncTelemetrySilently = async () => {
     try {
-      // 1. Poll Dahua reader for any new hardware swipes
+      // 1. Fast poll for new swipes (returns in <50ms from database)
       const pollRes = await pollDahuaReader().catch(() => null);
       if (pollRes && pollRes.synced_event) {
         onShowToast && onShowToast({
@@ -118,16 +115,14 @@ export default function RfidView({
         });
       }
 
-      // 2. Fetch fresh logs, equipment locations, and reader nodes
-      const [logRes, eqRes, dahuaRes, readersRes] = await Promise.all([
+      // 2. Refresh active logs, equipments, and readers
+      const [logRes, eqRes, readersRes] = await Promise.all([
         fetchRfidLogs(),
         fetchEquipments(),
-        fetchDahuaStatus().catch(() => null),
         fetchReaders().catch(() => null)
       ]);
       if (logRes && logRes.data) setRfidLogs(logRes.data);
       if (eqRes && eqRes.data) setEquipments(eqRes.data);
-      if (dahuaRes) setDahuaData(dahuaRes);
       if (readersRes && readersRes.data) setReaders(readersRes.data);
     } catch (err) {
       // silent background failure
@@ -422,128 +417,6 @@ export default function RfidView({
       {/* ========================================================================= */}
       {activeTab === 'controllers' && (
         <div>
-          {/* Quick Trigger Hardware Banner for Live Dahua Controller */}
-          <div className="card" style={{ 
-            marginBottom: '22px', 
-            border: '1.5px solid var(--color-primary)', 
-            background: 'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(14,165,233,0.03) 100%)',
-            position: 'relative'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-                  <span className="badge badge-primary" style={{ padding: '4px 10px', fontWeight: 700, letterSpacing: '0.5px' }}>
-                    ACTIVE HARDWARE ACCESS CONTROLLER
-                  </span>
-                  <span className={`badge ${dahuaData?.reader?.is_online !== false ? 'badge-success' : 'badge-danger'}`} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span className="badge-dot" style={{ backgroundColor: dahuaData?.reader?.is_online !== false ? 'var(--color-success)' : 'var(--color-danger)' }} />
-                    {dahuaData?.reader?.is_online !== false ? 'ONLINE (1ms)' : 'OFFLINE'}
-                  </span>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    IP: 192.168.8.108:80
-                  </span>
-                </div>
-
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-primary)', margin: '4px 0' }}>
-                  Dahua DHI-ASI1201M-MEP Access Control Reader
-                </h3>
-                <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                  Monitored Door: <strong>Operation Theatre Complex (OT Gate)</strong> • Serial: <code>{dahuaData?.reader?.serial_number || 'BK079FEPAJF07CD'}</code>
-                </div>
-              </div>
-
-              {/* Quick Trigger Button */}
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => handleTriggerDahuaTap(activeAsset?.rfid_tag_id || '6F4244DB')}
-                  disabled={isTapping}
-                  style={{
-                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)',
-                    fontWeight: 700,
-                    padding: '10px 18px'
-                  }}
-                >
-                  {isTapping ? (
-                    <RefreshCw size={16} className="spin-icon" />
-                  ) : isActiveAssetIn ? (
-                    <DoorOpen size={16} />
-                  ) : (
-                    <DoorClosed size={16} />
-                  )}
-                  {isTapping ? 'Processing...' : isActiveAssetIn ? `Tap Card (${activeAsset?.rfid_tag_id || '6F4244DB'}) -> Move OUT` : `Tap Card (${activeAsset?.rfid_tag_id || '6F4244DB'}) -> Move IN`}
-                </button>
-              </div>
-            </div>
-
-            {/* Tracked Asset summary banner */}
-            {activeAsset && (
-              <div style={{ 
-                marginTop: '14px', 
-                padding: '12px 16px', 
-                backgroundColor: 'var(--bg-surface)', 
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-color)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '12px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ 
-                    width: '40px', 
-                    height: '40px', 
-                    borderRadius: 'var(--radius-md)', 
-                    backgroundColor: isActiveAssetIn ? 'rgba(34, 197, 94, 0.12)' : 'rgba(245, 158, 11, 0.15)',
-                    color: isActiveAssetIn ? 'var(--color-success)' : '#d97706',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    {isActiveAssetIn ? <DoorClosed size={22} /> : <DoorOpen size={22} />}
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span 
-                        style={{ fontWeight: 800, fontSize: '0.98rem', color: 'var(--color-primary)', cursor: 'pointer' }}
-                        onClick={() => onViewPassport(activeAsset.id)}
-                      >
-                        {activeAsset.name}
-                      </span>
-                      <code>{activeAsset.asset_id}</code>
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      RFID Hex: <code style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{activeAsset.rfid_tag_id || '6F4244DB'}</code>
-                      {activeAsset.rfid_card_alias && <> • Alias: <code>{activeAsset.rfid_card_alias}</code></>}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button
-                    type="button"
-                    className={`badge ${isActiveAssetIn ? 'badge-success' : 'badge-warning'}`}
-                    style={{ 
-                      fontSize: '0.82rem', 
-                      padding: '6px 12px', 
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      border: 'none'
-                    }}
-                    title="Click to toggle presence"
-                    onClick={() => handleToggleAssetStatus(activeAsset.id, isActiveAssetIn ? 'OUT' : 'IN', activeAsset.name)}
-                  >
-                    <span className="badge-dot" style={{ backgroundColor: isActiveAssetIn ? '#16a34a' : '#d97706' }} />
-                    {isActiveAssetIn ? '🟢 IN DEPARTMENT' : '🟠 OUT (IN TRANSIT)'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Controller Filter & Metrics Toolbar */}
           <div style={{ 
