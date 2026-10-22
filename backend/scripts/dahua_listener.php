@@ -21,14 +21,16 @@ echo "=======================================================\n\n";
 $onceMode = in_array('--once', $argv);
 $lastProcessedRecNo = null;
 
-function callDahua($path) {
+function callDahua($path, $ip = null, $port = 80) {
     global $dahuaIp, $dahuaPort, $dahuaUser, $dahuaPass;
-    $ch = curl_init("http://{$dahuaIp}:{$dahuaPort}{$path}");
+    $targetIp = $ip ?: $dahuaIp;
+    $targetPort = $port ?: $dahuaPort;
+    $ch = curl_init("http://{$targetIp}:{$targetPort}{$path}");
     curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_DIGEST);
     curl_setopt($ch, CURLOPT_USERPWD, "{$dahuaUser}:{$dahuaPass}");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 4);
     $res = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
@@ -160,54 +162,94 @@ function processCardSwipe($cardNo, $pdo, $dahuaIp) {
     echo "    Timestamp: {$formattedTime}\n\n";
 }
 
-// Initial status check
-$info = callDahua("/cgi-bin/magicBox.cgi?action=getSystemInfo");
-if (!$info['ok']) {
-    echo "[-] Warning: Unable to connect to Dahua reader at {$dahuaIp}. Retrying...\n";
-} else {
-    echo "[+] Successfully connected to Dahua reader ({$dahuaIp})!\n";
+// Initialize active Dahua readers from database
+$readersStmt = $pdo->query("SELECT r.*, d.name as department_name, d.building as dept_building, d.floor as dept_floor
+    FROM rfid_readers r
+    LEFT JOIN departments d ON r.department_id = d.id
+    WHERE r.is_active = 1 AND (r.reader_type LIKE '%Dahua%' OR r.device_model LIKE '%DHI%' OR r.ip_address IN ('192.168.8.108', '192.168.8.109'))
+    ORDER BY r.id ASC");
+$activeDahuaReaders = $readersStmt->fetchAll();
+
+if (empty($activeDahuaReaders)) {
+    $activeDahuaReaders = [[
+        'id' => 1,
+        'ip_address' => $dahuaIp,
+        'port' => $dahuaPort,
+        'department_id' => 2,
+        'department_name' => 'Operation Theatre Complex (OT)',
+        'door_zone' => 'Operation Theatre Complex (OT Gate)',
+        'name' => 'DHI-ASI1201M-MEP (192.168.8.108)'
+    ]];
 }
 
-// Initialize latest RecNo from system_settings or reader
-$recStmt = $pdo->query("SELECT setting_value FROM system_settings WHERE setting_key = 'dahua_last_processed_recno'");
-$savedRec = $recStmt->fetchColumn();
-
-if ($savedRec !== false && $savedRec !== null) {
-    $lastProcessedRecNo = (int)$savedRec;
-    echo "[+] Initialized with stored RecNo from database: {$lastProcessedRecNo}\n";
-} else {
-    $initRecords = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=500");
-    if ($initRecords['ok']) {
-        $parsed = parseDahuaRecords($initRecords['response']);
-        $found = (int)($parsed['found'] ?? 0);
-        if ($found > 0) {
-            $lastProcessedRecNo = (int)($parsed["records[" . ($found - 1) . "].RecNo"] ?? 0);
-            echo "[+] Initialized with Dahua latest record RecNo: {$lastProcessedRecNo}\n";
-            $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES ('dahua_last_processed_recno', ?, 'hardware', 'Last processed Dahua RecNo') ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")->execute([$lastProcessedRecNo]);
-        }
+echo "[*] Monitoring Active Dahua Readers in Hospital Network:\n";
+foreach ($activeDahuaReaders as $reader) {
+    echo "    - Node #{$reader['id']}: {$reader['name']} (IP: {$reader['ip_address']}) -> Dept: {$reader['department_name']}\n";
+    
+    // Check connection
+    $info = callDahua("/cgi-bin/magicBox.cgi?action=getSystemInfo", $reader['ip_address'], $reader['port']);
+    if ($info['ok']) {
+        echo "      [+] Online & Connected to {$reader['ip_address']}\n";
+    } else {
+        echo "      [-] Warning: Unreachable at {$reader['ip_address']} (will retry during loop)\n";
     }
 }
 
-echo "[*] Listening for real-time RFID card swipes... Press Ctrl+C to stop.\n\n";
+echo "\n[*] Listening for real-time RFID card swipes across all readers... Press Ctrl+C to stop.\n\n";
 
 while (true) {
     try {
-        $recRes = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=500");
-        if ($recRes['ok']) {
+        foreach ($activeDahuaReaders as $reader) {
+            $curIp = $reader['ip_address'];
+            $curPort = !empty($reader['port']) ? (int)$reader['port'] : 80;
+            $settingKey = 'dahua_recno_' . str_replace('.', '_', $curIp);
+
+            $recRes = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=100", $curIp, $curPort);
+            if (!$recRes['ok']) {
+                continue;
+            }
+
             $parsed = parseDahuaRecords($recRes['response']);
             $found = (int)($parsed['found'] ?? 0);
-            if ($found > 0) {
-                for ($i = 0; $i < $found; $i++) {
-                    $recNo = (int)($parsed["records[{$i}].RecNo"] ?? 0);
-                    $cardNo = $parsed["records[{$i}].CardNo"] ?? '';
-                    $userId = $parsed["records[{$i}].UserID"] ?? '';
+            if ($found === 0) continue;
 
-                    if ($lastProcessedRecNo === null || $recNo > $lastProcessedRecNo) {
-                        $lastProcessedRecNo = $recNo;
-                        $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = 'dahua_last_processed_recno'")->execute([$lastProcessedRecNo]);
-                        $effectiveCard = !empty($cardNo) ? $cardNo : $userId;
-                        processCardSwipe($effectiveCard, $pdo, $dahuaIp);
-                    }
+            // Get last processed RecNo for this specific reader IP
+            $recStmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+            $recStmt->execute([$settingKey]);
+            $lastSavedRecVal = $recStmt->fetchColumn();
+
+            $maxRecNo = 0;
+            $records = [];
+            for ($i = 0; $i < $found; $i++) {
+                $recNo = (int)($parsed["records[{$i}].RecNo"] ?? 0);
+                $cardNo = $parsed["records[{$i}].CardNo"] ?? '';
+                $userId = $parsed["records[{$i}].UserID"] ?? '';
+                if ($recNo > $maxRecNo) $maxRecNo = $recNo;
+
+                if (!empty($cardNo) || !empty($userId)) {
+                    $records[] = [
+                        'rec_no' => $recNo,
+                        'card_no' => $cardNo,
+                        'user_id' => $userId
+                    ];
+                }
+            }
+
+            if ($lastSavedRecVal === false || $lastSavedRecVal === null) {
+                // Initialize setting for this reader
+                $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES (?, ?, 'hardware', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")
+                    ->execute([$settingKey, $maxRecNo, "Last processed RecNo for reader {$curIp}"]);
+                continue;
+            }
+
+            $lastProcessed = (int)$lastSavedRecVal;
+
+            foreach ($records as $r) {
+                if ($r['rec_no'] > $lastProcessed) {
+                    $effectiveCard = !empty($r['card_no']) ? $r['card_no'] : $r['user_id'];
+                    $lastProcessed = $r['rec_no'];
+                    $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = ?")->execute([$lastProcessed, $settingKey]);
+                    processCardSwipe($effectiveCard, $pdo, $curIp);
                 }
             }
         }
