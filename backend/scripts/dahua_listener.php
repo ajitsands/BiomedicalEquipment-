@@ -73,6 +73,18 @@ function processCardSwipe($cardNo, $pdo, $dahuaIp, $recordTimestamp = null) {
         return;
     }
 
+    // Timestamp check: Verify that this scan occurred AFTER the asset's last recorded detection!
+    // If an older reader was just turned on, its historical records will NOT pull the asset backwards!
+    if (!empty($recordTimestamp) && !empty($eq['rfid_last_detected_at'])) {
+        $recTime = is_numeric($recordTimestamp) ? (int)$recordTimestamp : strtotime($recordTimestamp);
+        $lastDetectedTime = strtotime($eq['rfid_last_detected_at']);
+        
+        if ($recTime <= $lastDetectedTime) {
+            echo "[i] Stale/Historical Record Ignored: Card {$rawCard} on {$dahuaIp} has timestamp " . date('Y-m-d H:i:s', $recTime) . " <= asset last detected at {$eq['rfid_last_detected_at']}. Movement skipped.\n";
+            return;
+        }
+    }
+
     // 4-second debounce check: if this same card/asset was swiped within the last 4 seconds, ignore duplicate!
     $recentStmt = $pdo->prepare("SELECT movement_direction, scan_timestamp 
         FROM rfid_scan_logs 

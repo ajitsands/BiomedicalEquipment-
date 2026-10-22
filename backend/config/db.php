@@ -3,6 +3,8 @@
 // Biomedical Equipment Maintenance Management System
 // Powered and Engineered by SaNDS Lab Middle East W.L.L
 
+date_default_timezone_set('Asia/Kolkata');
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
