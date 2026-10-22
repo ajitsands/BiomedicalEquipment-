@@ -73,23 +73,11 @@ function processCardSwipe($cardNo, $pdo, $dahuaIp, $recordTimestamp = null) {
         return;
     }
 
-    // Timestamp check: Verify that this scan occurred AFTER the asset's last recorded detection!
-    // If the card was swiped on an older reader in the past, it must NOT pull the asset backwards!
-    if (!empty($recordTimestamp) && !empty($eq['rfid_last_detected_at'])) {
-        $recTime = is_numeric($recordTimestamp) ? (int)$recordTimestamp : strtotime($recordTimestamp);
-        $lastDetectedTime = strtotime($eq['rfid_last_detected_at']);
-        
-        if ($recTime <= $lastDetectedTime) {
-            echo "[i] Stale/Past Record Ignored: Card {$rawCard} on {$dahuaIp} has timestamp " . date('Y-m-d H:i:s', $recTime) . " <= asset last detected at {$eq['rfid_last_detected_at']}. Movement skipped.\n";
-            return;
-        }
-    }
-
-    // 5-second debounce check: if this same card/asset was swiped within the last 5 seconds, ignore duplicate!
+    // 4-second debounce check: if this same card/asset was swiped within the last 4 seconds, ignore duplicate!
     $recentStmt = $pdo->prepare("SELECT movement_direction, scan_timestamp 
         FROM rfid_scan_logs 
         WHERE (equipment_id = ? OR raw_card_number = ? OR rfid_tag_id = ?) 
-          AND scan_timestamp >= (NOW() - INTERVAL 5 SECOND)
+          AND scan_timestamp >= (NOW() - INTERVAL 4 SECOND)
         ORDER BY id DESC LIMIT 1");
     $recentStmt->execute([$eq['id'], $rawCard, $eq['rfid_tag_id']]);
     $recentLog = $recentStmt->fetch();
@@ -254,8 +242,8 @@ while (true) {
                 }
             }
 
-            if ($lastSavedRecVal === false || $lastSavedRecVal === null || (int)$lastSavedRecVal === 0) {
-                // Initialize setting to maxRecNo so we NEVER replay past records on startup or reconnect!
+            if ($lastSavedRecVal === false || $lastSavedRecVal === null) {
+                // Brand-new reader never seen before in database: initialize pointer to maxRecNo so we don't replay past records on first startup
                 $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES (?, ?, 'hardware', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")
                     ->execute([$settingKey, $maxRecNo, "Last processed RecNo for reader {$curIp}"]);
                 continue;

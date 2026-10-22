@@ -233,22 +233,11 @@ function processReaderCardSwipe($cardNo, $readerIp, $reader, $pdo, $recordTimest
 
     if (!$eq) return null;
 
-    // Timestamp check: Verify that this scan occurred AFTER the asset's last recorded detection!
-    // If the card was swiped on an older reader in the past, it must NOT pull the asset backwards!
-    if (!empty($recordTimestamp) && !empty($eq['rfid_last_detected_at'])) {
-        $recTime = is_numeric($recordTimestamp) ? (int)$recordTimestamp : strtotime($recordTimestamp);
-        $lastDetectedTime = strtotime($eq['rfid_last_detected_at']);
-        
-        if ($recTime <= $lastDetectedTime) {
-            return null; // Ignore stale historical record
-        }
-    }
-
-    // 5-second debounce check
+    // 4-second debounce check
     $recentStmt = $pdo->prepare("SELECT movement_direction, scan_timestamp 
         FROM rfid_scan_logs 
         WHERE (equipment_id = ? OR raw_card_number = ? OR rfid_tag_id = ?) 
-          AND scan_timestamp >= (NOW() - INTERVAL 5 SECOND)
+          AND scan_timestamp >= (NOW() - INTERVAL 4 SECOND)
         ORDER BY id DESC LIMIT 1");
     $recentStmt->execute([$eq['id'], $rawCard, $eq['rfid_tag_id']]);
     $recentLog = $recentStmt->fetch();
@@ -403,8 +392,8 @@ if ($action === 'poll' || $action === 'sync') {
                     }
                 }
 
-                if ($lastSaved === false || $lastSaved === null || (int)$lastSaved === 0) {
-                    // Initialize setting to maxRecNo so we NEVER replay past records on startup or reconnect!
+                if ($lastSaved === false || $lastSaved === null) {
+                    // Brand-new reader never seen before in database: initialize pointer to maxRecNo so we don't replay past records
                     $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES (?, ?, 'hardware', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")
                         ->execute([$settingKey, $maxRecNo, "Last processed RecNo for reader {$curIp}"]);
                     continue;
