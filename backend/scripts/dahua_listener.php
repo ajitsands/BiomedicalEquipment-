@@ -85,23 +85,41 @@ function processCardSwipe($cardNo, $pdo, $dahuaIp) {
         return;
     }
 
+    // Resolve Reader Node dynamically from database
+    $rStmt = $pdo->prepare("SELECT r.*, d.name as department_name, d.building as dept_building, d.floor as dept_floor
+        FROM rfid_readers r
+        LEFT JOIN departments d ON r.department_id = d.id
+        WHERE r.ip_address = ? LIMIT 1");
+    $rStmt->execute([$dahuaIp]);
+    $reader = $rStmt->fetch();
+
+    $targetDeptId = !empty($reader['department_id']) ? (int)$reader['department_id'] : (int)$eq['department_id'];
+    $targetDeptName = !empty($reader['department_name']) ? $reader['department_name'] : 'Operation Theatre Complex (OT)';
+    $building = !empty($reader['building']) ? $reader['building'] : ($reader['dept_building'] ?? 'Surgical Pavilion B');
+    $floor = !empty($reader['floor']) ? $reader['floor'] : ($reader['dept_floor'] ?? '2nd Floor');
+    $doorZone = !empty($reader['door_zone']) ? $reader['door_zone'] : "{$targetDeptName} Gate";
+    $readerNode = $reader ? $reader['name'] : "DHI-ASI1201M-MEP ({$dahuaIp})";
+
     $currentTransit = strtoupper($eq['transit_status'] ?? 'IN');
-    $newTransit = ($currentTransit === 'IN') ? 'OUT' : 'IN';
+    $currentDeptId = (int)($eq['department_id'] ?? 0);
+    $isCrossDepartment = ($currentDeptId !== $targetDeptId);
 
-    $defaultRoom = ($eq['asset_id'] === 'BME-OT-ANES-008') ? 'OT Suite 2' : (($eq['asset_id'] === 'BME-OT-ESU-007') ? 'OT Suite 3' : 'Station 1');
-    $homeRoom = (!empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate')) ? $eq['room_number'] : $defaultRoom;
-    $building = !empty($eq['building']) ? $eq['building'] : 'Surgical Pavilion B';
-    $floor = !empty($eq['floor']) ? $eq['floor'] : '2nd Floor';
-    $deptId = !empty($eq['department_id']) ? (int)$eq['department_id'] : 2;
-
-    if ($newTransit === 'OUT') {
-        $room = 'OT Exit Gate (Outside Department / In Transit)';
-        $deptName = 'In Transit / Corridor';
+    if ($isCrossDepartment) {
+        $newTransit = 'IN';
+        $deptId = $targetDeptId;
+        $deptName = $targetDeptName;
+        $room = "{$doorZone} (Inside Department)";
+    } elseif ($currentTransit === 'OUT') {
+        $newTransit = 'IN';
+        $deptId = $targetDeptId;
+        $deptName = $targetDeptName;
+        $room = (!empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate')) ? $eq['room_number'] : "{$doorZone} (Inside Department)";
     } else {
-        $room = "{$homeRoom} (Inside Department)";
-        $deptName = 'Operation Theatre Complex (OT)';
+        $newTransit = 'OUT';
+        $deptId = $targetDeptId;
+        $deptName = 'In Transit / Corridor';
+        $room = "{$doorZone} (Outside Department / In Transit)";
     }
-    $readerNode = "DHI-ASI1201M-MEP ({$dahuaIp})";
 
     $pdo->beginTransaction();
 

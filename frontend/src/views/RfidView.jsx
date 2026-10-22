@@ -39,6 +39,7 @@ import {
 import { useSettings } from '../context/SettingsContext';
 import NewReaderModal from '../components/NewReaderModal';
 import AssignControllersModal from '../components/AssignControllersModal';
+import TestSwipeModal from '../components/TestSwipeModal';
 
 export default function RfidView({
   onViewPassport,
@@ -61,6 +62,7 @@ export default function RfidView({
   const [isTapping, setIsTapping] = useState(false);
   const [isNewReaderModalOpen, setIsNewReaderModalOpen] = useState(false);
   const [mappingDept, setMappingDept] = useState(null);
+  const [swipeModalReader, setSwipeModalReader] = useState(null);
   const autoPollRef = useRef(autoPoll);
 
   useEffect(() => {
@@ -684,8 +686,8 @@ export default function RfidView({
                         type="button"
                         className="btn btn-secondary btn-sm"
                         style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                        onClick={() => handleTriggerDahuaTap(activeAsset?.rfid_tag_id || '6F4244DB')}
-                        title="Simulate / Trigger card scan at this node"
+                        onClick={() => setSwipeModalReader(reader)}
+                        title={`Simulate / Trigger card scan on ${reader.name}`}
                       >
                         <Radio size={13} />
                         Test Swipe Tap
@@ -1059,6 +1061,18 @@ export default function RfidView({
         department={mappingDept}
         readers={readers}
         onClose={() => setMappingDept(null)}
+        onSuccess={() => {
+          loadRfidData();
+        }}
+        onShowToast={onShowToast}
+      />
+
+      {/* Test Swipe on Reader Modal */}
+      <TestSwipeModal
+        isOpen={!!swipeModalReader}
+        reader={swipeModalReader}
+        equipments={equipments}
+        onClose={() => setSwipeModalReader(null)}
         onSuccess={() => {
           loadRfidData();
         }}

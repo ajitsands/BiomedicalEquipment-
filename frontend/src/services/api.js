@@ -298,8 +298,11 @@ export async function pollDahuaReader() {
   return res.json();
 }
 
-export async function triggerDahuaTap(cardNumber = '6F4244DB') {
-  const res = await fetch(`${API_BASE}/dahua_rfid_receiver.php?action=test_swipe&card_number=${encodeURIComponent(cardNumber)}`);
+export async function triggerDahuaTap(cardNumber = '6F4244DB', readerIp = null, readerId = null) {
+  let url = `${API_BASE}/dahua_rfid_receiver.php?action=test_swipe&card_number=${encodeURIComponent(cardNumber)}`;
+  if (readerIp) url += `&reader_ip=${encodeURIComponent(readerIp)}`;
+  if (readerId) url += `&reader_id=${encodeURIComponent(readerId)}`;
+  const res = await fetch(url);
   const json = await res.json();
   if (!res.ok) throw new Error(json.message || 'Failed to trigger Dahua tap');
   return json;
