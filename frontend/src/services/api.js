@@ -336,6 +336,48 @@ export async function createReader(data) {
   return json;
 }
 
+export async function updateReader(id, data) {
+  const res = await fetch(`${API_BASE}/rfid_readers.php`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...data })
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update reader node');
+  return json;
+}
+
+export async function assignReaderDepartment(readerId, departmentId) {
+  const res = await fetch(`${API_BASE}/rfid_readers.php`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'assign_department', reader_id: readerId, department_id: departmentId })
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to assign reader to department');
+  return json;
+}
+
+export async function batchAssignReadersToDepartment(departmentId, readerIds) {
+  const res = await fetch(`${API_BASE}/rfid_readers.php`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'batch_assign_department', department_id: departmentId, reader_ids: readerIds })
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to map controllers to department');
+  return json;
+}
+
+export async function deleteReader(id) {
+  const res = await fetch(`${API_BASE}/rfid_readers.php?id=${id}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to delete reader node');
+  return json;
+}
+
 export async function fetchComplaintCodes() {
   const res = await fetch(`${API_BASE}/complaint_codes.php`);
   if (!res.ok) throw new Error('Failed to fetch complaint codes');
