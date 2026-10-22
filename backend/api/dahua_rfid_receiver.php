@@ -485,7 +485,33 @@ if ($action === 'status') {
     }
 }
 
-// 4. Default POST Ingestion Webhook (Direct alarm or card punch from external source)
+// 4. ACTION: Purge / Clear Hardware Access Record Buffer on Dahua Controller
+if ($action === 'clear_buffer' || $action === 'purge_hardware_buffer') {
+    $targetIp = $_GET['ip'] ?? $_POST['ip'] ?? $_GET['reader_ip'] ?? $_POST['reader_ip'] ?? $dahuaIp;
+    $targetPort = (int)($_GET['port'] ?? $_POST['port'] ?? 80);
+    $settingKey = 'dahua_recno_' . str_replace('.', '_', $targetIp);
+
+    $clearRes = callDahuaCgi("/cgi-bin/recordUpdater.cgi?action=clear&name=AccessControlCardRec", 3, $targetIp, $targetPort);
+    
+    // Always reset DB pointer to 0
+    $pdo->prepare("UPDATE system_settings SET setting_value = '0' WHERE setting_key = ?")->execute([$settingKey]);
+
+    if ($clearRes['ok']) {
+        jsonResponse([
+            'status' => 'success',
+            'message' => "Successfully purged hardware access log on reader {$targetIp}. Buffer reset to 0 (All historical scan logs remain safe in database).",
+            'reader_ip' => $targetIp
+        ]);
+    } else {
+        jsonResponse([
+            'status' => 'warning',
+            'message' => "Tracking pointer was reset to 0, but hardware reader at {$targetIp} was offline or timed out: " . ($clearRes['error'] ?: 'Unreachable'),
+            'reader_ip' => $targetIp
+        ]);
+    }
+}
+
+// 5. Default POST Ingestion Webhook (Direct alarm or card punch from external source)
 if ($method === 'POST') {
     $input = getJsonInput();
     if (empty($input)) {

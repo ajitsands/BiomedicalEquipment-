@@ -308,6 +308,14 @@ export async function triggerDahuaTap(cardNumber = '6F4244DB', readerIp = null, 
   return json;
 }
 
+export async function purgeHardwareBuffer(readerIp, port = 80) {
+  const url = `${API_BASE}/dahua_rfid_receiver.php?action=clear_buffer&ip=${encodeURIComponent(readerIp)}&port=${encodeURIComponent(port)}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to purge hardware buffer');
+  return json;
+}
+
 export async function setEquipmentTransitStatus(equipmentId, direction = 'IN') {
   const res = await fetch(`${API_BASE}/rfid_scan.php`, {
     method: 'POST',

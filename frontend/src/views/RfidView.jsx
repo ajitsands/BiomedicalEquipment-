@@ -8,7 +8,8 @@ import {
   setEquipmentTransitStatus,
   fetchReaders,
   assignReaderDepartment,
-  deleteReader
+  deleteReader,
+  purgeHardwareBuffer
 } from '../services/api';
 import { 
   Radio, 
@@ -33,7 +34,8 @@ import {
   Trash2,
   X,
   ExternalLink,
-  Check
+  Check,
+  RotateCcw
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import NewReaderModal from '../components/NewReaderModal';
@@ -216,6 +218,32 @@ export default function RfidView({
         title: 'Error',
         message: err.message || 'Failed to deactivate reader'
       });
+    }
+  };
+
+  const [purgingReaderId, setPurgingReaderId] = useState(null);
+
+  const handlePurgeBuffer = async (reader) => {
+    if (!window.confirm(`Purge hardware log memory for reader "${reader.name}" (${reader.ip_address})?\n\nThis will clear the device's temporary memory so it restarts from 0.\nAll previous scans and equipment histories are already safely stored in your database.`)) {
+      return;
+    }
+    setPurgingReaderId(reader.id);
+    try {
+      const res = await purgeHardwareBuffer(reader.ip_address, reader.port || 80);
+      onShowToast && onShowToast({
+        type: 'success',
+        title: 'Hardware Buffer Purged',
+        message: res.message || `Reader ${reader.ip_address} buffer reset to 0.`
+      });
+      await loadRfidData();
+    } catch (err) {
+      onShowToast && onShowToast({
+        type: 'error',
+        title: 'Purge Failed',
+        message: err.message || 'Failed to clear reader hardware buffer'
+      });
+    } finally {
+      setPurgingReaderId(null);
     }
   };
 
@@ -553,18 +581,64 @@ export default function RfidView({
                       </select>
                     </div>
 
+                    {/* Auto-Purge Status Badge for Dahua controllers */}
+                    {isDahua && (
+                      <div style={{ 
+                        padding: '6px 10px', 
+                        marginBottom: '10px', 
+                        backgroundColor: 'rgba(34, 197, 94, 0.06)', 
+                        borderRadius: 'var(--radius-sm)', 
+                        border: '1px dashed rgba(34, 197, 94, 0.3)',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        fontSize: '0.74rem' 
+                      }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--color-success)', fontWeight: 700 }}>
+                          <ShieldCheck size={13} />
+                          Auto-Purge (500 limit)
+                        </span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          Restarts at 0 automatically
+                        </span>
+                      </div>
+                    )}
+
                     {/* Card Actions */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                        onClick={() => setSwipeModalReader(reader)}
-                        title={`Simulate / Trigger card scan on ${reader.name}`}
-                      >
-                        <Radio size={13} />
-                        Test Swipe Tap
-                      </button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--border-color)', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                          onClick={() => setSwipeModalReader(reader)}
+                          title={`Simulate / Trigger card scan on ${reader.name}`}
+                        >
+                          <Radio size={13} />
+                          Test Swipe Tap
+                        </button>
+
+                        {isDahua && (
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            style={{ 
+                              fontSize: '0.76rem', 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: '4px',
+                              borderColor: 'var(--border-color)',
+                              padding: '4px 8px'
+                            }}
+                            onClick={() => handlePurgeBuffer(reader)}
+                            disabled={purgingReaderId === reader.id}
+                            title="Clear temporary hardware logs on this reader (All scans are permanently safe in database)"
+                          >
+                            <RotateCcw size={12} className={purgingReaderId === reader.id ? 'spin-icon' : ''} />
+                            {purgingReaderId === reader.id ? 'Purging...' : 'Purge Buffer'}
+                          </button>
+                        )}
+                      </div>
 
                       {reader.id !== 1 && (
                         <button
