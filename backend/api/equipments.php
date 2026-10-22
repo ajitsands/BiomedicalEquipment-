@@ -188,7 +188,8 @@ if ($method === 'GET') {
         $fields = [
             'name', 'brand', 'model_number', 'serial_number', 'equipment_type_id',
             'department_id', 'building', 'floor', 'room_number', 'bed_slot',
-            'rfid_tag_id', 'vendor_id', 'po_number', 'invoice_number',
+            'rfid_tag_id', 'rfid_card_alias', 'rfid_card_hex', 'rfid_reader_node', 'transit_status',
+            'vendor_id', 'po_number', 'invoice_number',
             'purchase_date', 'purchase_cost', 'currency', 'installation_date',
             'warranty_start_date', 'warranty_end_date', 'warranty_status',
             'contract_type', 'contract_vendor_id', 'contract_start_date', 'contract_end_date',

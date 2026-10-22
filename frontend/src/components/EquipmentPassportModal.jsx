@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { 
   fetchEquipmentDetail, 
-  uploadAttachment 
+  uploadAttachment,
+  updateEquipment 
 } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
@@ -44,6 +45,10 @@ export default function EquipmentPassportModal({
   const [docType, setDocType] = useState('User Manual');
   const [docTitle, setDocTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [rfidTagInput, setRfidTagInput] = useState('');
+  const [rfidAliasInput, setRfidAliasInput] = useState('');
+  const [rfidReaderNodeInput, setRfidReaderNodeInput] = useState('DHI-ASI1201M-MEP (192.168.8.108)');
+  const [savingRfid, setSavingRfid] = useState(false);
 
   useEffect(() => {
     if (isOpen && equipmentId) {
@@ -56,10 +61,43 @@ export default function EquipmentPassportModal({
       setLoading(true);
       const res = await fetchEquipmentDetail(equipmentId);
       setData(res.data);
+      if (res.data && res.data.equipment) {
+        setRfidTagInput(res.data.equipment.rfid_tag_id || '');
+        setRfidAliasInput(res.data.equipment.rfid_card_alias || '');
+        setRfidReaderNodeInput(res.data.equipment.rfid_reader_node || 'DHI-ASI1201M-MEP (192.168.8.108)');
+      }
     } catch (err) {
       onShowToast({ type: 'error', title: 'Error', message: err.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveRfid = async (e) => {
+    e.preventDefault();
+    try {
+      setSavingRfid(true);
+      await updateEquipment({
+        id: equipmentId,
+        rfid_tag_id: rfidTagInput,
+        rfid_card_alias: rfidAliasInput,
+        rfid_card_hex: rfidTagInput,
+        rfid_reader_node: rfidReaderNodeInput
+      });
+      onShowToast({
+        type: 'success',
+        title: 'RFID Mapping Saved',
+        message: `Asset is now linked to RFID Tag ${rfidTagInput} on ${rfidReaderNodeInput}.`
+      });
+      await loadDetail();
+    } catch (err) {
+      onShowToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: err.message || 'Could not update RFID mapping'
+      });
+    } finally {
+      setSavingRfid(false);
     }
   };
 
@@ -635,30 +673,103 @@ export default function EquipmentPassportModal({
                 </div>
               </div>
 
-              {/* RFID Tag Live Position & Movement Logs */}
+              {/* RFID Tag Live Position & Assignment Card */}
               <div className="card" style={{ padding: '20px' }}>
                 <h4 style={{ fontSize: '1rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Radio size={18} style={{ color: 'var(--color-accent)' }} />
-                  RFID Live Tag Tracking
+                  RFID Live Tag Tracking & Access Control Mapping
                 </h4>
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.88rem', marginBottom: '18px' }}>
-                  <div><strong>RFID Tag EPC:</strong> <code>{eq.rfid_tag_id}</code></div>
-                  <div><strong>Protocol:</strong> Gen2 UHF RFID (860 - 960 MHz)</div>
+                  <div><strong>Active RFID Tag EPC:</strong> <code>{eq.rfid_tag_id || 'Not Assigned'}</code></div>
+                  {eq.rfid_card_alias && <div><strong>RFID Card Alias:</strong> <code>{eq.rfid_card_alias}</code></div>}
                   <div><strong>Current Zone:</strong> {eq.building} • {eq.floor}</div>
                   <div><strong>Assigned Room/Bed:</strong> {eq.room_number} {eq.bed_slot ? `• ${eq.bed_slot}` : ''}</div>
-                  <div><strong>Last Detected By Reader:</strong> <code>{eq.rfid_reader_node || 'READER-DEFAULT'}</code></div>
+                  <div><strong>Assigned Reader Node:</strong> <code>{eq.rfid_reader_node || 'DHI-ASI1201M-MEP (192.168.8.108)'}</code></div>
+                  <div>
+                    <strong>Transit Status:</strong>{' '}
+                    <span className={`badge ${eq.transit_status === 'OUT' ? 'badge-warning' : 'badge-success'}`}>
+                      {eq.transit_status === 'OUT' ? '🟠 OUT (In Transit)' : '🟢 IN (In Department)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Inline Assignment Form */}
+                <div style={{ 
+                  backgroundColor: 'var(--bg-subtle)', 
+                  padding: '14px', 
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-color)',
+                  marginBottom: '18px'
+                }}>
+                  <h5 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: '10px', color: 'var(--color-primary)' }}>
+                    Assign / Re-map RFID Card & Access Reader
+                  </h5>
+                  <form onSubmit={handleSaveRfid}>
+                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                      <label className="form-label" style={{ fontSize: '0.78rem' }}>RFID Card UID (Hex / EPC)</label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={rfidTagInput}
+                        onChange={(e) => setRfidTagInput(e.target.value)}
+                        placeholder="e.g. 6F4244DB"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                      <label className="form-label" style={{ fontSize: '0.78rem' }}>Card Alias / Printed Code</label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={rfidAliasInput}
+                        onChange={(e) => setRfidAliasInput(e.target.value)}
+                        placeholder="e.g. BMEOTANES008"
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label" style={{ fontSize: '0.78rem' }}>Access Control Reader Node</label>
+                      <select
+                        className="form-control form-control-sm"
+                        value={rfidReaderNodeInput}
+                        onChange={(e) => setRfidReaderNodeInput(e.target.value)}
+                      >
+                        <option value="DHI-ASI1201M-MEP (192.168.8.108)">Dahua DHI-ASI1201M-MEP (192.168.8.108)</option>
+                        <option value="READER-OT-HUB-02 (OT Complex)">READER-OT-HUB-02 (OT Complex)</option>
+                        <option value="READER-ICU-NODE-3A (Tower A)">READER-ICU-NODE-3A (Tower A)</option>
+                        <option value="READER-ER-GATEWAY-1 (Ground Floor)">READER-ER-GATEWAY-1 (Ground Floor)</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="btn btn-primary btn-sm"
+                      disabled={savingRfid}
+                      style={{ width: '100%', justifyContent: 'center' }}
+                    >
+                      <CheckCircle2 size={14} />
+                      {savingRfid ? 'Saving RFID Mapping...' : 'Save RFID Card & Reader Mapping'}
+                    </button>
+                  </form>
                 </div>
 
                 <h5 style={{ fontSize: '0.86rem', marginBottom: '8px', color: 'var(--text-secondary)' }}>Recent RFID Movement History</h5>
-                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {rfidLogs.length === 0 ? (
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No historical RFID scans logged.</div>
                   ) : (
                     rfidLogs.map((log) => (
                       <div key={log.id} style={{ fontSize: '0.78rem', padding: '8px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)' }}>
-                        <div style={{ fontWeight: 600 }}>{log.detected_department} • {log.detected_room}</div>
-                        <div style={{ color: 'var(--text-muted)' }}>
-                          {formatDateTime(log.scan_timestamp)} • RSSI: {log.signal_strength_rssi} dBm
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 600 }}>{log.detected_department} • {log.detected_room}</span>
+                          <span className={`badge ${log.movement_direction === 'OUT' ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.65rem' }}>
+                            {log.movement_direction || 'IN'}
+                          </span>
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {formatDateTime(log.scan_timestamp)} • Reader: <code>{log.reader_id}</code>
                         </div>
                       </div>
                     ))
