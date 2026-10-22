@@ -88,7 +88,8 @@ if ($action === 'test_swipe' || $action === 'toggle') {
         $currentTransit = strtoupper($eq['transit_status'] ?? 'IN');
         $newTransit = ($currentTransit === 'IN') ? 'OUT' : 'IN';
 
-        $homeRoom = !empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate') ? $eq['room_number'] : 'OT Suite 3';
+        $defaultRoom = ($eq['asset_id'] === 'BME-OT-ANES-008') ? 'OT Suite 2' : (($eq['asset_id'] === 'BME-OT-ESU-007') ? 'OT Suite 3' : 'Station 1');
+        $homeRoom = (!empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate')) ? $eq['room_number'] : $defaultRoom;
         $building = !empty($eq['building']) ? $eq['building'] : 'Surgical Pavilion B';
         $floor = !empty($eq['floor']) ? $eq['floor'] : '2nd Floor';
         $deptId = !empty($eq['department_id']) ? (int)$eq['department_id'] : 2;
@@ -250,10 +251,36 @@ if ($action === 'poll' || $action === 'sync') {
                     $eq = $eqStmt->fetch();
 
                     if ($eq) {
+                        // 5-second debounce guard: prevent duplicate toggling for the same card
+                        $recentStmt = $pdo->prepare("SELECT movement_direction, scan_timestamp 
+                            FROM rfid_scan_logs 
+                            WHERE (equipment_id = ? OR raw_card_number = ? OR rfid_tag_id = ?) 
+                              AND scan_timestamp >= (NOW() - INTERVAL 5 SECOND)
+                            ORDER BY id DESC LIMIT 1");
+                        $recentStmt->execute([$eq['id'], $rawCard, $eq['rfid_tag_id']]);
+                        $recentLog = $recentStmt->fetch();
+
+                        if ($recentLog) {
+                            // Already processed within 5 seconds - do NOT toggle again!
+                            $syncedEvent = [
+                                'asset_id' => $eq['asset_id'],
+                                'name' => $eq['name'],
+                                'card_no' => $rawCard ?: $rawUser,
+                                'rec_no' => $r['rec_no'],
+                                'direction' => $recentLog['movement_direction'],
+                                'room' => $eq['room_number'],
+                                'timestamp' => formatSystemDateTime($recentLog['scan_timestamp'], true)
+                            ];
+                            $lastProcessedRecNo = $r['rec_no'];
+                            $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = 'dahua_last_processed_recno'")->execute([$lastProcessedRecNo]);
+                            continue;
+                        }
+
                         $currentTransit = strtoupper($eq['transit_status'] ?? 'IN');
                         $newTransit = ($currentTransit === 'IN') ? 'OUT' : 'IN';
 
-                        $homeRoom = !empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate') ? $eq['room_number'] : 'OT Suite 3';
+                        $defaultRoom = ($eq['asset_id'] === 'BME-OT-ANES-008') ? 'OT Suite 2' : (($eq['asset_id'] === 'BME-OT-ESU-007') ? 'OT Suite 3' : 'Station 1');
+                        $homeRoom = (!empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate')) ? $eq['room_number'] : $defaultRoom;
                         $building = !empty($eq['building']) ? $eq['building'] : 'Surgical Pavilion B';
                         $floor = !empty($eq['floor']) ? $eq['floor'] : '2nd Floor';
                         $deptId = !empty($eq['department_id']) ? (int)$eq['department_id'] : 2;

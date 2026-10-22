@@ -71,10 +71,25 @@ function processCardSwipe($cardNo, $pdo, $dahuaIp) {
         return;
     }
 
+    // 5-second debounce check: if this same card/asset was swiped within the last 5 seconds, ignore duplicate!
+    $recentStmt = $pdo->prepare("SELECT movement_direction, scan_timestamp 
+        FROM rfid_scan_logs 
+        WHERE (equipment_id = ? OR raw_card_number = ? OR rfid_tag_id = ?) 
+          AND scan_timestamp >= (NOW() - INTERVAL 5 SECOND)
+        ORDER BY id DESC LIMIT 1");
+    $recentStmt->execute([$eq['id'], $rawCard, $eq['rfid_tag_id']]);
+    $recentLog = $recentStmt->fetch();
+
+    if ($recentLog) {
+        echo "[i] Debounce: Card {$rawCard} already processed at {$recentLog['scan_timestamp']} ({$recentLog['movement_direction']}). Skipping duplicate toggle.\n";
+        return;
+    }
+
     $currentTransit = strtoupper($eq['transit_status'] ?? 'IN');
     $newTransit = ($currentTransit === 'IN') ? 'OUT' : 'IN';
 
-    $homeRoom = !empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate') ? $eq['room_number'] : 'OT Suite 3';
+    $defaultRoom = ($eq['asset_id'] === 'BME-OT-ANES-008') ? 'OT Suite 2' : (($eq['asset_id'] === 'BME-OT-ESU-007') ? 'OT Suite 3' : 'Station 1');
+    $homeRoom = (!empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate')) ? $eq['room_number'] : $defaultRoom;
     $building = !empty($eq['building']) ? $eq['building'] : 'Surgical Pavilion B';
     $floor = !empty($eq['floor']) ? $eq['floor'] : '2nd Floor';
     $deptId = !empty($eq['department_id']) ? (int)$eq['department_id'] : 2;
