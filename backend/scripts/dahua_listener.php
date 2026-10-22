@@ -114,23 +114,31 @@ if (!$info['ok']) {
     echo "[+] Successfully connected to Dahua reader ({$dahuaIp})!\n";
 }
 
-// Initialize latest RecNo
-$initRecords = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=10");
-if ($initRecords['ok']) {
-    $parsed = parseDahuaRecords($initRecords['response']);
-    $found = (int)($parsed['found'] ?? 0);
-    if ($found > 0) {
-        $lastProcessedRecNo = (int)($parsed["records[" . ($found - 1) . "].RecNo"] ?? 0);
-        echo "[+] Initialized with Dahua latest record RecNo: {$lastProcessedRecNo}\n";
+// Initialize latest RecNo from system_settings or reader
+$recStmt = $pdo->query("SELECT setting_value FROM system_settings WHERE setting_key = 'dahua_last_processed_recno'");
+$savedRec = $recStmt->fetchColumn();
+
+if ($savedRec !== false && $savedRec !== null) {
+    $lastProcessedRecNo = (int)$savedRec;
+    echo "[+] Initialized with stored RecNo from database: {$lastProcessedRecNo}\n";
+} else {
+    $initRecords = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=500");
+    if ($initRecords['ok']) {
+        $parsed = parseDahuaRecords($initRecords['response']);
+        $found = (int)($parsed['found'] ?? 0);
+        if ($found > 0) {
+            $lastProcessedRecNo = (int)($parsed["records[" . ($found - 1) . "].RecNo"] ?? 0);
+            echo "[+] Initialized with Dahua latest record RecNo: {$lastProcessedRecNo}\n";
+            $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES ('dahua_last_processed_recno', ?, 'hardware', 'Last processed Dahua RecNo') ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")->execute([$lastProcessedRecNo]);
+        }
     }
 }
 
 echo "[*] Listening for real-time RFID card swipes... Press Ctrl+C to stop.\n\n";
 
-$lastCheckTime = 0;
 while (true) {
     try {
-        $recRes = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=5");
+        $recRes = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=500");
         if ($recRes['ok']) {
             $parsed = parseDahuaRecords($recRes['response']);
             $found = (int)($parsed['found'] ?? 0);
@@ -142,6 +150,7 @@ while (true) {
 
                     if ($lastProcessedRecNo === null || $recNo > $lastProcessedRecNo) {
                         $lastProcessedRecNo = $recNo;
+                        $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = 'dahua_last_processed_recno'")->execute([$lastProcessedRecNo]);
                         $effectiveCard = !empty($cardNo) ? $cardNo : $userId;
                         processCardSwipe($effectiveCard, $pdo, $dahuaIp);
                     }

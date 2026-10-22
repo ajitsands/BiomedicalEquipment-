@@ -169,7 +169,8 @@ if ($action === 'test_swipe' || $action === 'toggle') {
 // 2. ACTION: Poll Dahua Reader for Live Hardware Swipes
 if ($action === 'poll' || $action === 'sync') {
     try {
-        $res = callDahuaCgi("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=10");
+        // Query up to 500 records so recent swipes are always captured
+        $res = callDahuaCgi("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=500");
         if (!$res['ok']) {
             jsonError("Failed to reach Dahua reader at {$dahuaIp}: " . ($res['error'] ?: "HTTP {$res['code']}"), 502);
         }
@@ -178,15 +179,14 @@ if ($action === 'poll' || $action === 'sync') {
         $totalFound = (int)($parsed['found'] ?? 0);
         $records = [];
 
-        // Group into individual record blocks
         for ($i = 0; $i < $totalFound; $i++) {
             $cardNo = $parsed["records[{$i}].CardNo"] ?? null;
             $cardName = $parsed["records[{$i}].CardName"] ?? null;
             $userId = $parsed["records[{$i}].UserID"] ?? null;
-            $recNo = $parsed["records[{$i}].RecNo"] ?? null;
+            $recNo = isset($parsed["records[{$i}].RecNo"]) ? (int)$parsed["records[{$i}].RecNo"] : 0;
             $timeUtc = (int)($parsed["records[{$i}].CreateTimeRealUTC"] ?? $parsed["records[{$i}].CreateTime"] ?? 0);
             
-            if ($cardNo) {
+            if ($cardNo !== null || $userId !== null) {
                 $records[] = [
                     'index' => $i,
                     'rec_no' => $recNo,
@@ -199,28 +199,32 @@ if ($action === 'poll' || $action === 'sync') {
             }
         }
 
-        // Check if latest record is target card and if it needs syncing
+        // Get last processed RecNo from database
+        $recStmt = $pdo->query("SELECT setting_value FROM system_settings WHERE setting_key = 'dahua_last_processed_recno'");
+        $lastSavedRecVal = $recStmt->fetchColumn();
+        
         $latestRecord = !empty($records) ? end($records) : null;
+        $maxRecNo = $latestRecord ? (int)$latestRecord['rec_no'] : 0;
+
+        if ($lastSavedRecVal === false || $lastSavedRecVal === null) {
+            // First time initialization: process the latest swipe if recent
+            $lastProcessedRecNo = max(0, $maxRecNo - 1);
+            $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES ('dahua_last_processed_recno', ?, 'hardware', 'Last processed Dahua RecNo') ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")->execute([$lastProcessedRecNo]);
+        } else {
+            $lastProcessedRecNo = (int)$lastSavedRecVal;
+        }
+
+        $targetCards = ['6F4244DB', 'FFCD3BDB', '1866613979', 'BMEOTANES008'];
         $syncedEvent = null;
 
-        if ($latestRecord) {
-            $targetCards = ['6F4244DB', 'FFCD3BDB', '1866613979', 'BMEOTANES008'];
-            $matched = in_array(strtoupper($latestRecord['card_no']), $targetCards) ||
-                       in_array(strtoupper($latestRecord['user_id'] ?? ''), $targetCards);
+        // Process any new records where rec_no > lastProcessedRecNo
+        foreach ($records as $r) {
+            if ($r['rec_no'] > $lastProcessedRecNo) {
+                $cardUpper = strtoupper($r['card_no'] ?? '');
+                $userUpper = strtoupper($r['user_id'] ?? '');
+                $matched = in_array($cardUpper, $targetCards) || in_array($userUpper, $targetCards);
 
-            if ($matched) {
-                // Check if already processed in last 4 seconds to prevent duplicate bounce
-                $checkStmt = $pdo->prepare("SELECT id, scan_timestamp, movement_direction FROM rfid_scan_logs 
-                    WHERE (rfid_tag_id = ? OR raw_card_number = ?)
-                    ORDER BY scan_timestamp DESC LIMIT 1");
-                $checkStmt->execute([$latestRecord['card_no'], $latestRecord['card_no']]);
-                $lastLog = $checkStmt->fetch();
-
-                $now = time();
-                $lastLogTime = $lastLog ? strtotime($lastLog['scan_timestamp']) : 0;
-
-                // If no log in the last 4 seconds, process auto-toggle
-                if (($now - $lastLogTime) > 4) {
+                if ($matched) {
                     $eqStmt = $pdo->prepare("SELECT * FROM equipments WHERE asset_id = 'BME-OT-ANES-008' LIMIT 1");
                     $eqStmt->execute();
                     $eq = $eqStmt->fetch();
@@ -231,18 +235,31 @@ if ($action === 'poll' || $action === 'sync') {
 
                         $building = 'Surgical Pavilion B';
                         $floor = '2nd Floor';
-                        $room = ($newTransit === 'OUT') ? 'OT Exit Gate (Outside Department / In Transit)' : 'OT Suite 2 (Inside Department)';
-                        $deptName = ($newTransit === 'OUT') ? 'In Transit / Corridor' : 'Operation Theatre Complex (OT)';
+                        $room = ($newTransit === 'OUT') 
+                            ? 'OT Exit Gate (Outside Department / In Transit)' 
+                            : 'OT Suite 2 (Inside Department)';
+                        $deptName = ($newTransit === 'OUT') 
+                            ? 'In Transit / Corridor' 
+                            : 'Operation Theatre Complex (OT)';
 
                         $pdo->beginTransaction();
+                        
                         $logStmt = $pdo->prepare("INSERT INTO rfid_scan_logs (
                             equipment_id, rfid_tag_id, raw_card_number, movement_direction,
                             reader_id, reader_ip, detected_building, detected_floor,
                             detected_department, detected_room, signal_strength_rssi
-                        ) VALUES (?, ?, ?, ?, 'DHI-ASI1201M-MEP', ?, ?, ?, ?, ?, -50)");
+                        ) VALUES (?, ?, ?, ?, 'DHI-ASI1201M-MEP', ?, ?, ?, ?, ?, -48)");
+                        
                         $logStmt->execute([
-                            $eq['id'], $eq['rfid_tag_id'], $latestRecord['card_no'], $newTransit,
-                            $dahuaIp, $building, $floor, $deptName, $room
+                            $eq['id'], 
+                            $eq['rfid_tag_id'], 
+                            $r['card_no'], 
+                            $newTransit,
+                            $dahuaIp, 
+                            $building, 
+                            $floor, 
+                            $deptName, 
+                            $room
                         ]);
 
                         $upStmt = $pdo->prepare("UPDATE equipments SET 
@@ -251,18 +268,24 @@ if ($action === 'poll' || $action === 'sync') {
                             rfid_reader_node = 'DHI-ASI1201M-MEP (192.168.8.108)'
                             WHERE id = ?");
                         $upStmt->execute([$building, $floor, $room, $newTransit, $eq['id']]);
+
                         $pdo->commit();
 
                         $syncedEvent = [
                             'asset_id' => $eq['asset_id'],
                             'name' => $eq['name'],
-                            'card_no' => $latestRecord['card_no'],
+                            'card_no' => $r['card_no'],
+                            'rec_no' => $r['rec_no'],
                             'direction' => $newTransit,
                             'room' => $room,
                             'timestamp' => formatSystemDateTime(date('Y-m-d H:i:s'), true)
                         ];
                     }
                 }
+
+                // Update last processed rec_no
+                $lastProcessedRecNo = $r['rec_no'];
+                $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = 'dahua_last_processed_recno'")->execute([$lastProcessedRecNo]);
             }
         }
 
@@ -270,10 +293,12 @@ if ($action === 'poll' || $action === 'sync') {
             'status' => 'success',
             'reader_ip' => $dahuaIp,
             'records_found' => $totalFound,
+            'last_processed_recno' => $lastProcessedRecNo,
             'latest_record' => $latestRecord,
             'synced_event' => $syncedEvent,
             'recent_swipes' => array_reverse(array_slice($records, -5))
         ]);
+
     } catch (Exception $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
