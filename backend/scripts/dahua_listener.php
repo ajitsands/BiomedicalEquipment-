@@ -204,7 +204,7 @@ while (true) {
             $curPort = !empty($reader['port']) ? (int)$reader['port'] : 80;
             $settingKey = 'dahua_recno_' . str_replace('.', '_', $curIp);
 
-            $recRes = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=100", $curIp, $curPort);
+            $recRes = callDahua("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=5000", $curIp, $curPort);
             if (!$recRes['ok']) {
                 continue;
             }

@@ -16,7 +16,7 @@ $dahuaPass = 'admin@123';
 /**
  * Execute Dahua HTTP Digest Request
  */
-function callDahuaCgi($path, $timeout = 4, $ip = null, $port = 80) {
+function callDahuaCgi($path, $timeoutSec = 2, $ip = null, $port = 80) {
     global $dahuaIp, $dahuaPort, $dahuaUser, $dahuaPass;
     $targetIp = $ip ?: $dahuaIp;
     $targetPort = $port ?: $dahuaPort;
@@ -26,8 +26,8 @@ function callDahuaCgi($path, $timeout = 4, $ip = null, $port = 80) {
     curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_DIGEST);
     curl_setopt($ch, CURLOPT_USERPWD, "{$dahuaUser}:{$dahuaPass}");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
-    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 400); // 400ms connect timeout prevents blocking on offline devices
+    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 1500);       // 1.5s max request timeout
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -213,10 +213,110 @@ if ($action === 'test_swipe' || $action === 'toggle') {
     }
 }
 
-// 2. ACTION: Poll Dahua Readers for Live Hardware Swipes (Fast Non-Blocking Telemetry)
+function processReaderCardSwipe($cardNo, $readerIp, $reader, $pdo) {
+    $rawCard = trim($cardNo);
+    if (empty($rawCard)) return null;
+
+    $hexCard = (is_numeric($rawCard) && (int)$rawCard > 100000) ? strtoupper(dechex((int)$rawCard)) : strtoupper($rawCard);
+
+    $eqStmt = $pdo->prepare("SELECT * FROM equipments WHERE 
+        rfid_tag_id = ? 
+        OR rfid_card_hex = ? 
+        OR rfid_card_alias = ? 
+        OR rfid_tag_id = ? 
+        OR rfid_card_hex = ? 
+        OR rfid_card_alias = ?
+        ORDER BY (rfid_tag_id = ? OR rfid_card_hex = ?) DESC, id DESC 
+        LIMIT 1");
+    $eqStmt->execute([$rawCard, $rawCard, $rawCard, $hexCard, $hexCard, $hexCard, $rawCard, $hexCard]);
+    $eq = $eqStmt->fetch();
+
+    if (!$eq) return null;
+
+    // 5-second debounce check
+    $recentStmt = $pdo->prepare("SELECT movement_direction, scan_timestamp 
+        FROM rfid_scan_logs 
+        WHERE (equipment_id = ? OR raw_card_number = ? OR rfid_tag_id = ?) 
+          AND scan_timestamp >= (NOW() - INTERVAL 5 SECOND)
+        ORDER BY id DESC LIMIT 1");
+    $recentStmt->execute([$eq['id'], $rawCard, $eq['rfid_tag_id']]);
+    $recentLog = $recentStmt->fetch();
+    if ($recentLog) return null;
+
+    $targetDeptId = !empty($reader['department_id']) ? (int)$reader['department_id'] : (int)$eq['department_id'];
+    $targetDeptName = !empty($reader['department_name']) ? $reader['department_name'] : 'Operation Theatre Complex (OT)';
+    $building = !empty($reader['building']) ? $reader['building'] : ($reader['dept_building'] ?? 'Surgical Pavilion B');
+    $floor = !empty($reader['floor']) ? $reader['floor'] : ($reader['dept_floor'] ?? '2nd Floor');
+    $doorZone = !empty($reader['door_zone']) ? $reader['door_zone'] : "{$targetDeptName} Gate";
+    $readerNode = $reader['name'] ?? "DHI-ASI1201M-MEP ({$readerIp})";
+
+    $currentTransit = strtoupper($eq['transit_status'] ?? 'IN');
+    $currentDeptId = (int)($eq['department_id'] ?? 0);
+    $isCrossDepartment = ($currentDeptId !== $targetDeptId);
+
+    if ($isCrossDepartment) {
+        $newTransit = 'IN';
+        $deptId = $targetDeptId;
+        $deptName = $targetDeptName;
+        $room = "{$doorZone} (Inside Department)";
+    } elseif ($currentTransit === 'OUT') {
+        $newTransit = 'IN';
+        $deptId = $targetDeptId;
+        $deptName = $targetDeptName;
+        $room = (!empty($eq['room_number']) && !str_contains($eq['room_number'], 'Gate')) ? $eq['room_number'] : "{$doorZone} (Inside Department)";
+    } else {
+        $newTransit = 'OUT';
+        $deptId = $targetDeptId;
+        $deptName = 'In Transit / Corridor';
+        $room = "{$doorZone} (Outside Department / In Transit)";
+    }
+
+    $pdo->beginTransaction();
+
+    $logStmt = $pdo->prepare("INSERT INTO rfid_scan_logs (
+        equipment_id, rfid_tag_id, raw_card_number, movement_direction,
+        reader_id, reader_ip, detected_building, detected_floor,
+        detected_department, detected_room, signal_strength_rssi
+    ) VALUES (?, ?, ?, ?, 'DHI-ASI1201M-MEP', ?, ?, ?, ?, ?, -46)");
+
+    $logStmt->execute([
+        $eq['id'],
+        $eq['rfid_tag_id'],
+        $rawCard,
+        $newTransit,
+        $readerIp,
+        $building,
+        $floor,
+        $deptName,
+        $room
+    ]);
+
+    $upStmt = $pdo->prepare("UPDATE equipments SET 
+        building = ?, floor = ?, room_number = ?, department_id = ?,
+        transit_status = ?, rfid_last_detected_at = NOW(),
+        rfid_reader_node = ?
+        WHERE id = ?");
+    $upStmt->execute([$building, $floor, $room, $deptId, $newTransit, $readerNode, $eq['id']]);
+
+    $pdo->commit();
+
+    return [
+        'asset_id' => $eq['asset_id'],
+        'name' => $eq['name'],
+        'card_no' => $rawCard,
+        'reader_ip' => $readerIp,
+        'reader_name' => $readerNode,
+        'department' => $deptName,
+        'direction' => $newTransit,
+        'room' => $room,
+        'timestamp' => formatSystemDateTime(date('Y-m-d H:i:s'), true)
+    ];
+}
+
+// 2. ACTION: Poll Dahua Readers for Live Hardware Swipes
 if ($action === 'poll' || $action === 'sync') {
     try {
-        // Fast DB-level check: find any scan log generated in the last 6 seconds
+        // Step A: Fast DB-level check (if background daemon is running, this returns in <5ms)
         $logStmt = $pdo->prepare("SELECT l.*, e.name as equipment_name, e.asset_id 
             FROM rfid_scan_logs l 
             LEFT JOIN equipments e ON l.equipment_id = e.id 
@@ -240,9 +340,77 @@ if ($action === 'poll' || $action === 'sync') {
             ];
         }
 
-        // Return active reader statuses from database
-        $readersStmt = $pdo->query("SELECT id, name, ip_address, port, department_id, is_active FROM rfid_readers WHERE is_active = 1");
+        // Active readers query with department details
+        $readersStmt = $pdo->query("SELECT r.*, d.name as department_name, d.building as dept_building, d.floor as dept_floor
+            FROM rfid_readers r
+            LEFT JOIN departments d ON r.department_id = d.id
+            WHERE r.is_active = 1");
         $allPolledReaders = $readersStmt->fetchAll();
+
+        // Step B: Hardware fallback check (polls Dahua readers with count=5000 and 400ms connect timeout)
+        if (!$syncedEvent) {
+            $dahuaOnly = array_filter($allPolledReaders, function($r) {
+                return (stripos($r['reader_type'] ?? '', 'Dahua') !== false) || 
+                       (stripos($r['device_model'] ?? '', 'DHI') !== false) || 
+                       in_array($r['ip_address'] ?? '', ['192.168.8.108', '192.168.8.109']);
+            });
+
+            foreach ($dahuaOnly as $reader) {
+                $curIp = $reader['ip_address'];
+                $curPort = !empty($reader['port']) ? (int)$reader['port'] : 80;
+                $settingKey = 'dahua_recno_' . str_replace('.', '_', $curIp);
+
+                $recRes = callDahuaCgi("/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec&count=5000", 2, $curIp, $curPort);
+                if (!$recRes['ok']) continue;
+
+                $parsed = parseDahuaKeyValue($recRes['response']);
+                $found = (int)($parsed['found'] ?? 0);
+                if ($found === 0) continue;
+
+                $recStmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
+                $recStmt->execute([$settingKey]);
+                $lastSaved = $recStmt->fetchColumn();
+
+                $maxRecNo = 0;
+                $records = [];
+                for ($i = 0; $i < $found; $i++) {
+                    $recNo = (int)($parsed["records[{$i}].RecNo"] ?? 0);
+                    $cardNo = $parsed["records[{$i}].CardNo"] ?? '';
+                    $userId = $parsed["records[{$i}].UserID"] ?? '';
+                    if ($recNo > $maxRecNo) $maxRecNo = $recNo;
+                    if (!empty($cardNo) || !empty($userId)) {
+                        $records[] = [
+                            'rec_no' => $recNo,
+                            'card_no' => $cardNo,
+                            'user_id' => $userId
+                        ];
+                    }
+                }
+
+                if ($lastSaved === false || $lastSaved === null) {
+                    $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, category, description) VALUES (?, ?, 'hardware', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")
+                        ->execute([$settingKey, $maxRecNo, "Last processed RecNo for reader {$curIp}"]);
+                    continue;
+                }
+
+                $lastProcessed = (int)$lastSaved;
+                foreach ($records as $r) {
+                    if ($r['rec_no'] > $lastProcessed) {
+                        $effectiveCard = !empty($r['card_no']) ? $r['card_no'] : $r['user_id'];
+                        $lastProcessed = $r['rec_no'];
+                        $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = ?")->execute([$lastProcessed, $settingKey]);
+
+                        $event = processReaderCardSwipe($effectiveCard, $curIp, $reader, $pdo);
+                        if ($event) {
+                            $syncedEvent = $event;
+                            break;
+                        }
+                    }
+                }
+
+                if ($syncedEvent) break;
+            }
+        }
 
         jsonResponse([
             'status' => 'success',
@@ -251,6 +419,9 @@ if ($action === 'poll' || $action === 'sync') {
         ]);
 
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         jsonError("Failed to poll telemetry: " . $e->getMessage(), 500);
     }
 }
