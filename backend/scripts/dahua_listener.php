@@ -211,7 +211,12 @@ while (true) {
 
             $parsed = parseDahuaRecords($recRes['response']);
             $found = (int)($parsed['found'] ?? 0);
-            if ($found === 0) continue;
+            
+            // If reader buffer is empty (found = 0), ensure tracking pointer is 0
+            if ($found === 0) {
+                $pdo->prepare("UPDATE system_settings SET setting_value = '0' WHERE setting_key = ?")->execute([$settingKey]);
+                continue;
+            }
 
             // Get last processed RecNo for this specific reader IP
             $recStmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
@@ -244,6 +249,13 @@ while (true) {
 
             $lastProcessed = (int)$lastSavedRecVal;
 
+            // Handle wrap-around or manual hardware clear
+            if ($maxRecNo > 0 && $maxRecNo < $lastProcessed) {
+                echo "[*] Reader {$curIp} records reset or wrapped around (max: {$maxRecNo} < last: {$lastProcessed}). Resetting pointer to 0.\n";
+                $lastProcessed = 0;
+                $pdo->prepare("UPDATE system_settings SET setting_value = '0' WHERE setting_key = ?")->execute([$settingKey]);
+            }
+
             foreach ($records as $r) {
                 if ($r['rec_no'] > $lastProcessed) {
                     $effectiveCard = !empty($r['card_no']) ? $r['card_no'] : $r['user_id'];
@@ -251,6 +263,14 @@ while (true) {
                     $pdo->prepare("UPDATE system_settings SET setting_value = ? WHERE setting_key = ?")->execute([$lastProcessed, $settingKey]);
                     processCardSwipe($effectiveCard, $pdo, $curIp);
                 }
+            }
+
+            // Auto-Purge: When records on the device reach 500, clear device log so it restarts from 0
+            if ($found >= 500 || $lastProcessed >= 500) {
+                echo "[*] Reader {$curIp} reached {$lastProcessed} records. Purging device log to keep hardware lightweight...\n";
+                callDahua("/cgi-bin/recordUpdater.cgi?action=clear&name=AccessControlCardRec", $curIp, $curPort);
+                $pdo->prepare("UPDATE system_settings SET setting_value = '0' WHERE setting_key = ?")->execute([$settingKey]);
+                echo "[+] Reader {$curIp} access log purged. Pointer reset to 0.\n";
             }
         }
     } catch (Exception $e) {

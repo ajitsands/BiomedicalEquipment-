@@ -365,7 +365,10 @@ if ($action === 'poll' || $action === 'sync') {
 
                 $parsed = parseDahuaKeyValue($recRes['response']);
                 $found = (int)($parsed['found'] ?? 0);
-                if ($found === 0) continue;
+                if ($found === 0) {
+                    $pdo->prepare("UPDATE system_settings SET setting_value = '0' WHERE setting_key = ?")->execute([$settingKey]);
+                    continue;
+                }
 
                 $recStmt = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key = ?");
                 $recStmt->execute([$settingKey]);
@@ -394,6 +397,13 @@ if ($action === 'poll' || $action === 'sync') {
                 }
 
                 $lastProcessed = (int)$lastSaved;
+
+                // Handle wrap-around or manual hardware clear
+                if ($maxRecNo > 0 && $maxRecNo < $lastProcessed) {
+                    $lastProcessed = 0;
+                    $pdo->prepare("UPDATE system_settings SET setting_value = '0' WHERE setting_key = ?")->execute([$settingKey]);
+                }
+
                 foreach ($records as $r) {
                     if ($r['rec_no'] > $lastProcessed) {
                         $effectiveCard = !empty($r['card_no']) ? $r['card_no'] : $r['user_id'];
@@ -406,6 +416,12 @@ if ($action === 'poll' || $action === 'sync') {
                             break;
                         }
                     }
+                }
+
+                // Auto-Purge: When reader records reach 500, purge hardware logs on reader so it restarts from 0
+                if ($found >= 500 || $lastProcessed >= 500) {
+                    callDahuaCgi("/cgi-bin/recordUpdater.cgi?action=clear&name=AccessControlCardRec", 2, $curIp, $curPort);
+                    $pdo->prepare("UPDATE system_settings SET setting_value = '0' WHERE setting_key = ?")->execute([$settingKey]);
                 }
 
                 if ($syncedEvent) break;
