@@ -97,7 +97,7 @@ export default function TestSwipeModal({
           {rfidEquipments.map(eq => {
             const cardTag = eq.rfid_tag_id || eq.rfid_card_hex;
             const isSelected = selectedCard === cardTag && !customCard;
-            const isOut = eq.transit_status === 'OUT';
+            const isCrossDept = reader.department_id && Number(eq.department_id) !== Number(reader.department_id);
 
             return (
               <div
@@ -124,17 +124,62 @@ export default function TestSwipeModal({
                     <code>{eq.asset_id}</code>
                   </div>
                   <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    RFID Tag: <strong style={{ color: 'var(--color-primary)' }}>{cardTag}</strong> • Dept: {eq.department_name || `Dept #${eq.department_id}`}
+                    RFID Tag: <strong style={{ color: 'var(--color-primary)' }}>{cardTag}</strong> • Current Dept: <strong>{eq.department_name || `Dept #${eq.department_id}`}</strong>
                   </div>
                 </div>
 
-                <span className={`badge ${isOut ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.72rem' }}>
-                  {isOut ? '🟠 OUT (In Transit)' : '🟢 IN'}
-                </span>
+                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                  <span className={`badge ${isOut ? 'badge-warning' : 'badge-success'}`} style={{ fontSize: '0.72rem' }}>
+                    {isOut ? '🟠 OUT (In Transit)' : '🟢 IN'}
+                  </span>
+                  {isCrossDept ? (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                      ⇄ Move to {reader.department_name}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                      {isOut ? 'Swipe will return to 🟢 IN' : 'Swipe will exit to 🟠 OUT'}
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
+
+        {/* Selected Action Preview Callout */}
+        {(() => {
+          const activeEq = rfidEquipments.find(e => (e.rfid_tag_id === selectedCard || e.rfid_card_hex === selectedCard));
+          if (!activeEq || customCard) return null;
+          const isCross = reader.department_id && Number(activeEq.department_id) !== Number(reader.department_id);
+          const isOut = activeEq.transit_status === 'OUT';
+
+          return (
+            <div style={{
+              padding: '8px 12px',
+              backgroundColor: isCross ? 'rgba(37, 99, 235, 0.08)' : (isOut ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)'),
+              borderLeft: `4px solid ${isCross ? 'var(--color-primary)' : (isOut ? 'var(--color-success)' : 'var(--color-warning)')}`,
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '12px',
+              fontSize: '0.78rem'
+            }}>
+              <strong>Action Preview: </strong>
+              {isCross ? (
+                <span>
+                  Asset will <strong>relocate</strong> from <em>{activeEq.department_name || `Dept #${activeEq.department_id}`}</em> to <strong>{reader.department_name}</strong> and be marked as <strong style={{ color: 'var(--color-success)' }}>🟢 IN Department</strong>.
+                </span>
+              ) : isOut ? (
+                <span>
+                  Asset will <strong>return</strong> to <strong>{reader.department_name}</strong> and be marked as <strong style={{ color: 'var(--color-success)' }}>🟢 IN Department</strong>.
+                </span>
+              ) : (
+                <span>
+                  Asset will <strong>exit</strong> <strong>{reader.department_name}</strong> and be marked as <strong style={{ color: 'var(--color-warning)' }}>🟠 OUT (In Transit)</strong>.
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Custom Card UID Input */}
         <div>

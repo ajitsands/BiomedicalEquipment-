@@ -83,12 +83,56 @@ if ($method === 'GET') {
         $rfidTag = !empty($equipment['rfid_tag_id']) ? $equipment['rfid_tag_id'] : $rawCard;
 
         // 2. Resolve Reader & Network details
-        $readerId = $input['reader_id'] ?? 'DHI-ASI1201M-MEP';
-        $readerIp = $input['reader_ip'] ?? '192.168.8.108';
+        $readerId = $input['reader_id'] ?? '';
+        $readerIp = $input['reader_ip'] ?? '';
         $rssi = (int)($input['signal_strength_rssi'] ?? -50);
+        $deviceRecNo = (int)($input['device_rec_no'] ?? $input['rec_no'] ?? 0);
+        $deviceTimestamp = (int)($input['device_timestamp'] ?? $input['create_time'] ?? time());
 
+        // Resolve reader from database if IP or ID provided
+        $reader = null;
+        if (!empty($readerIp) || !empty($readerId)) {
+            $rStmt = $pdo->prepare("SELECT r.*, d.name as department_name, d.building as dept_building, d.floor as dept_floor
+                FROM rfid_readers r
+                LEFT JOIN departments d ON r.department_id = d.id
+                WHERE r.ip_address = ? OR r.id = ? OR r.reader_code = ? OR r.name = ?
+                LIMIT 1");
+            $rStmt->execute([$readerIp, $readerId, $readerId, $readerId]);
+            $reader = $rStmt->fetch();
+        }
+
+        if (!empty($readerIp) && ($deviceTimestamp > 0 || $deviceRecNo > 0)) {
+            $chkStmt = $pdo->prepare("SELECT id FROM rfid_scan_logs 
+                WHERE reader_ip = ? 
+                  AND (raw_card_number = ? OR rfid_tag_id = ? OR raw_card_number = ? OR rfid_tag_id = ?) 
+                  AND (
+                      (device_timestamp = ? AND device_timestamp > 0)
+                      OR (device_rec_no = ? AND device_rec_no > 0)
+                  )
+                LIMIT 1");
+            $chkStmt->execute([$readerIp, $rawCard, $rawCard, $hexCard, $hexCard, $deviceTimestamp, $deviceRecNo]);
+            if ($chkStmt->fetchColumn()) {
+                jsonResponse([
+                    'status' => 'ignored',
+                    'message' => 'Record already exists in database with this device timestamp / record number',
+                    'equipment_id' => $eqId,
+                    'asset_id' => $equipment['asset_id'],
+                    'transit_status' => $equipment['transit_status']
+                ]);
+            }
+        }
+
+        $currentDeptId = (int)($equipment['department_id'] ?? 2);
+        
         // 3. Resolve Target Department
-        $departmentId = !empty($input['department_id']) ? (int)$input['department_id'] : (int)($equipment['department_id'] ?? 2);
+        if (!empty($input['department_id'])) {
+            $departmentId = (int)$input['department_id'];
+        } elseif ($reader && !empty($reader['department_id'])) {
+            $departmentId = (int)$reader['department_id'];
+        } else {
+            $departmentId = $currentDeptId;
+        }
+
         $deptStmt = $pdo->prepare("SELECT name, building, floor FROM departments WHERE id = ?");
         $deptStmt->execute([$departmentId]);
         $deptRow = $deptStmt->fetch();
@@ -96,39 +140,58 @@ if ($method === 'GET') {
 
         // 4. Determine Direction (IN or OUT)
         $currentTransit = strtoupper($equipment['transit_status'] ?? 'IN');
+        $isCrossDepartment = ($currentDeptId !== $departmentId);
+
+        $lastAssetDeviceTime = (int)($equipment['rfid_last_device_time'] ?? 0);
+        if ($isCrossDepartment && $deviceTimestamp > 0 && $lastAssetDeviceTime > 0 && $deviceTimestamp <= $lastAssetDeviceTime) {
+            jsonResponse([
+                'status' => 'ignored',
+                'message' => 'Historical record from another department is older than the asset\'s last verified location',
+                'equipment_id' => $eqId,
+                'asset_id' => $equipment['asset_id'],
+                'transit_status' => $equipment['transit_status']
+            ]);
+        }
 
         if (!empty($input['movement_direction'])) {
             $newDirection = (strtoupper(trim($input['movement_direction'])) === 'OUT') ? 'OUT' : 'IN';
-        } elseif (!empty($input['department_id']) || !empty($input['room_number'])) {
-            // Relocator modal action: default to IN when moving to a new department/room
+        } elseif ($isCrossDepartment) {
+            // Moving to a different department -> Always check IN
             $newDirection = 'IN';
         } else {
-            // Automatic door swipe toggle
+            // Same department toggle
             $newDirection = ($currentTransit === 'IN') ? 'OUT' : 'IN';
         }
 
         $newTransitStatus = $newDirection;
+        $doorZone = !empty($reader['door_zone']) ? $reader['door_zone'] : "{$targetDeptName} Gate";
 
         // 5. Resolve Room and Location text
         if (!empty($input['room_number'])) {
             $room = trim($input['room_number']);
+        } elseif ($isCrossDepartment) {
+            $room = "{$doorZone} (Inside Department)";
         } elseif ($newDirection === 'OUT') {
-            $room = 'OT Exit Gate (Outside Department / In Transit)';
+            $room = "{$doorZone} (Outside Department / In Transit)";
         } else {
-            $room = ($departmentId === 2) ? 'OT Suite 2 (Inside Department)' : ($equipment['room_number'] ?? 'Station 1');
+            $room = (!empty($equipment['room_number']) && !str_contains($equipment['room_number'], 'Gate') && !str_contains($equipment['room_number'], 'Outside'))
+                ? $equipment['room_number']
+                : "{$doorZone} (Inside Department)";
         }
 
-        $building = !empty($input['building']) ? $input['building'] : ($deptRow['building'] ?? $equipment['building'] ?? 'Main Hospital Block');
-        $floor = !empty($input['floor']) ? $input['floor'] : ($deptRow['floor'] ?? $equipment['floor'] ?? 'Ground Floor');
-        $departmentName = ($newDirection === 'OUT' && empty($input['department_id'])) ? 'In Transit / Corridor' : $targetDeptName;
+        $building = !empty($input['building']) ? $input['building'] : ($reader['building'] ?? $deptRow['building'] ?? $equipment['building'] ?? 'Hospital Main Block');
+        $floor = !empty($input['floor']) ? $input['floor'] : ($reader['floor'] ?? $deptRow['floor'] ?? $equipment['floor'] ?? 'Ground Floor');
+        $departmentName = ($newDirection === 'OUT' && !$isCrossDepartment && empty($input['department_id'])) ? 'In Transit / Corridor' : $targetDeptName;
 
-        if ($newDirection === 'OUT') {
-            $msg = "{$equipment['name']} ({$equipment['asset_id']}) is now OUT / In Transit.";
+        if ($isCrossDepartment) {
+            $msg = "{$equipment['name']} ({$equipment['asset_id']}) transferred from Department #{$currentDeptId} to {$targetDeptName} (🟢 IN Department).";
+        } elseif ($newDirection === 'OUT') {
+            $msg = "{$equipment['name']} ({$equipment['asset_id']}) has EXITED {$targetDeptName} (Status: 🟠 OUT / In Transit).";
         } else {
-            $msg = "{$equipment['name']} ({$equipment['asset_id']}) is now IN {$departmentName} ({$room}).";
+            $msg = "{$equipment['name']} ({$equipment['asset_id']}) has RETURNED to {$targetDeptName} (Status: 🟢 IN Department).";
         }
 
-        $readerNodeLabel = "{$readerId} ({$readerIp})";
+        $readerNodeLabel = $reader ? $reader['name'] : ($readerId ? "{$readerId} ({$readerIp})" : 'RFID Terminal');
 
         $pdo->beginTransaction();
 
@@ -136,8 +199,9 @@ if ($method === 'GET') {
         $stmtLog = $pdo->prepare("INSERT INTO rfid_scan_logs (
             equipment_id, rfid_tag_id, raw_card_number, movement_direction,
             reader_id, reader_ip, detected_building, detected_floor,
-            detected_department, detected_room, signal_strength_rssi
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            detected_department, detected_room, signal_strength_rssi,
+            device_rec_no, device_timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
         $stmtLog->execute([
             $eqId,
@@ -150,7 +214,9 @@ if ($method === 'GET') {
             $floor,
             $departmentName,
             $room,
-            $rssi
+            $rssi,
+            $deviceRecNo,
+            $deviceTimestamp
         ]);
 
         $logId = $pdo->lastInsertId();
@@ -163,6 +229,7 @@ if ($method === 'GET') {
             department_id = ?,
             transit_status = ?,
             rfid_last_detected_at = NOW(),
+            rfid_last_device_time = ?,
             rfid_reader_node = ?
             WHERE id = ?");
 
@@ -172,6 +239,7 @@ if ($method === 'GET') {
             $room,
             $departmentId,
             $newTransitStatus,
+            $deviceTimestamp,
             $readerNodeLabel,
             $eqId
         ]);

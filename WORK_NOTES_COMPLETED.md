@@ -276,11 +276,11 @@ stop_localhost_2020.bat
 
 ## 16. Git Repository & Locked Release Tag
 
-- **Locked Version:** `v2.0.0` (Tagged and pushed to origin)
+- **Locked Version:** `v2.1.0` (Tagged and pushed to origin)
+- **Previous Tag:** `v2.0.0`
 - **Branch:** `v2.0`
 - **Remote:** `https://github.com/ajitsands/BiomedicalEquipment-.git`
-- **Latest Commit:** `ec69edd`
-- **Build Status:** Verified production build with `npm run build` with zero errors.
+- **Feature Set:** Multi-Device RFID & Cross-Department Movement Engine, Database Duplicate Filtering, Zero-Phantom Offline Reader Immunity
 
 ---
 
@@ -367,4 +367,45 @@ stop_localhost_2020.bat
      Introduced a 5-second cooldown window preventing duplicate toggles when both the background listener daemon and the frontend web poller process the same physical card swipe simultaneously.
    - **Background Daemon Restart:**
      Restarted `dahua_listener.php` with the new dynamic engine and debounce filter.
+
+
+---
+
+## 20. Multi-Device RFID & Cross-Department Movement Engine
+
+1. **Root Cause of Device Flip Bug Resolved:**
+   - Historical Hardware Buffer Replay: When reader 192.168.8.108 went offline and 192.168.8.109 was online, reader 109 replayed historical records due to pointer resets and lack of timestamp staleness checks.
+   - Fix: Added a 120-second timestamp freshness guard and monotonic pointer advancement.
+
+2. **Cross-Department Transfer State Machine:**
+   - Same Department: Toggles between IN and OUT.
+   - Cross-Department Transfer: When scanned at another department reader, asset relocates to the new department and is marked as IN.
+   - Subsequent Scans: Once relocated, subsequent scans at the new reader toggle between IN and OUT.
+
+3. **Frontend UI Telemetry:**
+   - RfidView.jsx displays IN/OUT asset count breakdown per department.
+   - TestSwipeModal.jsx provides action preview for cross-department relocation.
+
+---
+
+## 21. Database-Level Swipe Verification & Zero-Phantom-Movement Architecture
+
+1. **Logical Error Identified:**
+   - When pulling access control records from Dahua readers, reader `192.168.8.109` had 30 historical records in its internal buffer (`found=30`, timestamps `1792700148` to `1792752042`).
+   - In `rfid_scan_logs`, `device_timestamp` and `device_rec_no` were previously stored as `NULL`.
+   - Consequently, when reader `192.168.8.108` went offline and `192.168.8.109` was polled, the query `SELECT id FROM rfid_scan_logs WHERE ... device_timestamp = ?` returned no match, causing reader 109's old records to be treated as brand new punches. This erroneously relocated assets to OPD (Department 13).
+   - If both devices were online, unsynced historical logs from both readers competed, causing assets to bounce back and forth on every punch.
+
+2. **Resolution Applied:**
+   - **Direct Database Record Verification:**
+     In `dahua_rfid_receiver.php`, `dahua_listener.php`, and `rfid_scan.php`, every single record fetched from any reader device is checked against `rfid_scan_logs` matching `reader_ip + raw_card_number + (device_timestamp OR device_rec_no)`. If an entry exists in the database, it is **immediately ignored**.
+   - **Mandatory Device Timestamp & RecNo Indexing:**
+     Updated all insert queries (`dahua_rfid_receiver.php`, `rfid_scan.php`, `dahua_listener.php`) to save `device_rec_no` and `device_timestamp`.
+   - **Chronological Guard (`rfid_last_device_time`):**
+     Each asset stores its latest verified punch timestamp (`rfid_last_device_time`). If an older record from another reader is received with a timestamp $\le$ `rfid_last_device_time`, it is ignored, preventing past records from pulling an asset backwards in time.
+   - **Historical Database Synchronization:**
+     All 30 existing records from reader `192.168.8.109` were seeded into `rfid_scan_logs`. All monitored assets were returned to Department 2 (OT Complex) with status `🟢 IN`. Future polls now recognize all 30 records as already processed.
+   - **Full Offline Immunity:**
+     Verified that with `192.168.8.108` offline and `192.168.8.109` online, zero phantom movements occur and assets remain in OT. Physical swipes on either reader trigger exactly once.
+
 

@@ -726,7 +726,21 @@ export default function RfidView({
                         {dept.building} • <strong style={{ color: 'var(--color-primary)' }}>{dept.floor}</strong>
                       </div>
                     </div>
-                    <span className="badge badge-info">{deptEquips.length} Assets</span>
+                    {(() => {
+                      const inCount = deptEquips.filter(e => e.transit_status !== 'OUT').length;
+                      const outCount = deptEquips.filter(e => e.transit_status === 'OUT').length;
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+                          <span className="badge badge-info">{deptEquips.length} Total</span>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <span className="badge badge-success" style={{ fontSize: '0.66rem', padding: '1px 5px' }}>{inCount} IN</span>
+                            {outCount > 0 && (
+                              <span className="badge badge-warning" style={{ fontSize: '0.66rem', padding: '1px 5px' }}>{outCount} OUT</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Section: Mapped Access Controllers (One or More!) */}
@@ -847,7 +861,7 @@ export default function RfidView({
                               </div>
 
                               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                Asset ID: <code>{eq.asset_id}</code> • Room: <strong>{eq.room_number || 'Main'}</strong> {eq.bed_slot ? `(${eq.bed_slot})` : ''}
+                                Asset ID: <code>{eq.asset_id}</code> • {isEqIn ? <span>Room: <strong>{eq.room_number || 'Main'}</strong></span> : <strong style={{ color: 'var(--color-warning)' }}>🟠 Corridor / In Transit</strong>} {eq.bed_slot ? `(${eq.bed_slot})` : ''}
                               </div>
                               
                               <div style={{ fontSize: '0.72rem', color: 'var(--color-accent)', fontFamily: 'var(--font-mono)', marginTop: '1px' }}>
