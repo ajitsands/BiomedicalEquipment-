@@ -408,4 +408,67 @@ stop_localhost_2020.bat
    - **Full Offline Immunity:**
      Verified that with `192.168.8.108` offline and `192.168.8.109` online, zero phantom movements occur and assets remain in OT. Physical swipes on either reader trigger exactly once.
 
+---
+
+## 22. Progressive Multi-Session PM Execution & Physical A4 Print Engine
+
+1. **Progressive PM Draft Persistence Architecture:**
+   - **Clinical Challenge:** Complex hospital biomedical equipment (e.g., Hemodialysis Stations with 37+ IEC 62353 & WHO checkpoints) cannot always be completed in a single session. Clinical engineers frequently complete 10 items on day one, 20 items on day two, and finish remaining checks subsequently.
+   - **Database Architecture (`pm_checklist_drafts`):**
+     Created dedicated draft persistence table with `equipment_id`, `template_id`, `technician_name`, `technician_badge`, `inspection_date`, `time_spent_minutes`, `engineer_notes`, `parts_replaced`, `completed_count`, `total_items`, `progress_percent`, `answers_json`, and `status = 'in_progress'`.
+   - **UI Feedback & State Restoration:**
+     The Checklist Runner modal ([`ChecklistRunnerModal.jsx`](file:///e:/medical_equpments/frontend/src/components/ChecklistRunnerModal.jsx)) displays real-time progress percentages, completed count vs total count, and allows saving progressive drafts anytime without requiring 100% completion. Unfinished items remain marked as `Pending`.
+   - **Seamless Resumption:**
+     When reopening a checklist for any asset with an active draft, all previously entered answers, measured values, and remarks are instantly restored.
+
+2. **Physical A4 Print Worksheet Engine:**
+   - **Isolated Iframe Printing:**
+     Replaced browser modal CSS print overrides with an isolated hidden print iframe in [`PrintablePhaseWorksheetModal.jsx`](file:///e:/medical_equpments/frontend/src/components/PrintablePhaseWorksheetModal.jsx) and [`PrintableHousekeepingWorksheetModal.jsx`](file:///e:/medical_equpments/frontend/src/components/PrintableHousekeepingWorksheetModal.jsx), eliminating blank screen print issues.
+   - **Dynamic Organization Branding:**
+     Company name and logo are retrieved dynamically from central Application Settings (`backend/api/settings.php`).
+   - **Header Layout Compliance:**
+     The company logo and name are aligned in a clean single header line, with department and facility details aligned to the left margin without outdated static hospital text.
+
+---
+
+## 23. Hospital Housekeeping & Infection Control Management Module
+
+1. **Clinical & Regulatory Scope:**
+   - Designed to meet NHRA (National Health Regulatory Authority) cleanliness standards and WHO infection control protocols for critical patient care areas.
+2. **Master Inspection Framework (`housekeeping_checklist_master`):**
+   - 28 standardized cleanliness checkpoints across high-touch patient contact surfaces, floor/wall sanitation, waste segregation (biohazard sharps), and environmental disinfection.
+   - Incorporates ATP bioluminescence swab readings (Relative Light Units - RLU) with strict threshold limits ($\le 100$ RLU).
+3. **Core Modules Implemented:**
+   - **[`HousekeepingView.jsx`](file:///e:/medical_equpments/frontend/src/views/HousekeepingView.jsx)**: Central hospital housekeeping dashboard displaying active audits, compliance pass rates, department filtering, and overdue alerts.
+   - **[`HousekeepingInspectionRunnerModal.jsx`](file:///e:/medical_equpments/frontend/src/components/HousekeepingInspectionRunnerModal.jsx)**: Interactive progressive audit runner supporting 1-by-1 point inspection, ATP logging, and progressive draft saving.
+   - **[`BookHousekeepingComplaintModal.jsx`](file:///e:/medical_equpments/frontend/src/components/BookHousekeepingComplaintModal.jsx)**: Rapid complaint booking for environmental cleanliness deficiencies.
+   - **[`HousekeepingCertificateModal.jsx`](file:///e:/medical_equpments/frontend/src/components/HousekeepingCertificateModal.jsx)**: Official A4 cleanliness audit certificates with verification QR codes and engineer signatures.
+
+---
+
+## 24. Mobile Field Staff Portal (`#mobile`) & Real-Time CMMS Synchronization
+
+1. **System Architecture & Hardware Access:**
+   - Built a dedicated mobile-first responsive web application accessible at `http://<SERVER_LAN_IP>:2020/#mobile`.
+   - Desktop application includes a **Mobile Portal Launcher Modal** ([`MobilePortalLauncherModal.jsx`](file:///e:/medical_equpments/frontend/src/components/MobilePortalLauncherModal.jsx)) that dynamically detects the server's local IPv4 Wi-Fi LAN address and generates a QR code for smartphone camera scanning.
+   - Pure mobile viewport experience: desktop navbars, footers, and complex multi-column grids are hidden when operating under `#mobile`.
+
+2. **Categorized Field Work Streams:**
+   - Mobile dashboard categorizes staff duties into 4 streams with live pending task counters:
+     1. **Preventive Maintenance (PM)** (WHO & IEC 62353 safety checklists)
+     2. **Breakdowns & Work Orders** (Emergency equipment repairs and corrective actions)
+     3. **Site Preparations & Infra** (130-point facility pre-installation inspections)
+     4. **Housekeeping & Infection Control** (NHRA sanitation audits)
+
+3. **1-by-1 Mobile Task Runner & Incremental Progress Saving:**
+   - Field engineers can execute tasks step-by-step directly from their smartphone.
+   - Tapping **Save Progress** immediately updates `pm_checklist_drafts` and sets `pm_phase_assignments` to `In Progress` in real time.
+   - When all steps are verified and signed, tapping **Submit Final Job** archives the draft, advances `next_pm_due_date`, restores equipment status to `Operational`, and logs the official maintenance record.
+
+4. **Bug Diagnosis & Resolution (PM Category Load Error):**
+   - **Error Identified:** When clicking *Preventive Maintenance (PM)* on mobile, a `500 Internal Server Error` ("Failed to load assigned jobs") occurred due to referencing `dr.completed_items_count` and `dr.total_items_count` instead of `dr.completed_count` and `dr.total_items`. Furthermore, checklist ordering queried `ci.item_order` instead of `ci.step_number`.
+   - **Fix Applied:** Aligned column names in [mobile_portal.php](file:///e:/medical_equpments/backend/api/mobile_portal.php), mapped `job_id` dynamically between phase assignments and asset IDs, and normalized `answers_json` storage.
+   - **Verification:** Verified all mobile portal endpoints return HTTP 200 with full 37-point checklists and real-time draft progress.
+
+
 
