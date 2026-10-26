@@ -48,12 +48,15 @@ if ($method === 'GET') {
             et.asset_type_code, et.department_scope, et.default_protection_class, et.default_applied_part_type,
             d.name as department_name, d.code as department_code, d.floor as department_floor, d.building as department_building,
             v.name as vendor_name, v.emergency_hotline as vendor_emergency_hotline, v.contact_person as vendor_contact_person, v.email as vendor_email,
-            cv.name as contract_vendor_name
+            cv.name as contract_vendor_name,
+            dft.id as pm_draft_id, dft.completed_count as pm_draft_completed_count, dft.total_items as pm_draft_total_items,
+            dft.progress_percent as pm_draft_progress_percent, dft.updated_at as pm_draft_updated_at
         FROM equipments e
         JOIN equipment_types et ON e.equipment_type_id = et.id
         JOIN departments d ON e.department_id = d.id
         JOIN vendors v ON e.vendor_id = v.id
-        LEFT JOIN vendors cv ON e.contract_vendor_id = cv.id";
+        LEFT JOIN vendors cv ON e.contract_vendor_id = cv.id
+        LEFT JOIN pm_checklist_drafts dft ON e.id = dft.equipment_id AND dft.status = 'in_progress'";
 
         if (!empty($where)) {
             $sql .= " WHERE " . implode(" AND ", $where);

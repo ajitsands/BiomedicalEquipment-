@@ -104,6 +104,33 @@ export async function fetchMaintenanceRecords(equipmentId = null) {
   return res.json();
 }
 
+// PM Checklist Drafts & Progressive Progress
+export async function fetchPmDraft(equipmentId) {
+  const res = await fetch(`${API_BASE}/pm_drafts.php?equipment_id=${equipmentId}`);
+  if (!res.ok) throw new Error('Failed to fetch PM draft');
+  return res.json();
+}
+
+export async function savePmDraft(data) {
+  const res = await fetch(`${API_BASE}/pm_drafts.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to save PM draft');
+  return json;
+}
+
+export async function deletePmDraft(equipmentId) {
+  const res = await fetch(`${API_BASE}/pm_drafts.php?equipment_id=${equipmentId}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to clear PM draft');
+  return json;
+}
+
 export async function fetchComplaints(filters = {}) {
   const params = new URLSearchParams();
   Object.keys(filters).forEach(key => {
@@ -546,3 +573,308 @@ export async function uploadServiceAttachment(file, meta = {}) {
   return json;
 }
 
+// ==========================================
+// Housekeeping & Infection Control Services (Bahrain NHRA & WHO 3-Layer)
+// ==========================================
+
+export async function fetchHousekeepingStats() {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=stats`);
+  if (!res.ok) throw new Error('Failed to fetch housekeeping statistics');
+  return res.json();
+}
+
+export async function fetchHousekeepingStandards() {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=standards`);
+  if (!res.ok) throw new Error('Failed to fetch standards');
+  return res.json();
+}
+
+export async function fetchHousekeepingCategories() {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=categories`);
+  if (!res.ok) throw new Error('Failed to fetch housekeeping categories');
+  return res.json();
+}
+
+export async function fetchHousekeepingChecklistMaster(filters = {}) {
+  const params = new URLSearchParams({ action: 'checklist_master' });
+  Object.keys(filters).forEach(k => {
+    if (filters[k] && filters[k] !== 'ALL') params.append(k, filters[k]);
+  });
+  const res = await fetch(`${API_BASE}/housekeeping.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch checklist master');
+  return res.json();
+}
+
+export async function fetchHousekeepingInspections(filters = {}) {
+  const params = new URLSearchParams({ action: 'inspections' });
+  Object.keys(filters).forEach(k => {
+    if (filters[k] && filters[k] !== 'ALL') params.append(k, filters[k]);
+  });
+  const res = await fetch(`${API_BASE}/housekeeping.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch room inspections');
+  return res.json();
+}
+
+export async function fetchHousekeepingInspectionDetail(id) {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=inspection_detail&id=${id}`);
+  if (!res.ok) throw new Error('Failed to fetch inspection details');
+  return res.json();
+}
+
+export async function createHousekeepingInspection(data) {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=create_inspection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to create room inspection');
+  return json;
+}
+
+export async function saveHousekeepingInspectionResults(data) {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=save_inspection_results`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to submit inspection evaluations');
+  return json;
+}
+
+export async function deleteHousekeepingInspection(id) {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=delete_inspection&id=${id}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to delete inspection');
+  return json;
+}
+
+export async function fetchHousekeepingComplaints(filters = {}) {
+  const params = new URLSearchParams({ action: 'complaints' });
+  Object.keys(filters).forEach(k => {
+    if (filters[k] !== undefined && filters[k] !== null && filters[k] !== '' && filters[k] !== 'ALL') {
+      params.append(k, filters[k]);
+    }
+  });
+  const res = await fetch(`${API_BASE}/housekeeping.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch housekeeping complaints');
+  return res.json();
+}
+
+export async function fetchHousekeepingComplaintDetail(id) {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=complaint_detail&id=${id}`);
+  if (!res.ok) throw new Error('Failed to fetch complaint detail');
+  return res.json();
+}
+
+export async function createHousekeepingComplaint(data) {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=create_complaint`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to create housekeeping complaint');
+  return json;
+}
+
+export async function updateHousekeepingComplaint(data) {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=update_complaint`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to update housekeeping complaint');
+  return json;
+}
+
+export async function deleteHousekeepingComplaint(id) {
+  const res = await fetch(`${API_BASE}/housekeeping.php?action=delete_complaint&id=${id}`, {
+    method: 'DELETE'
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to delete complaint');
+  return json;
+}
+
+// -------------------------------------------------------------
+// Operations Calendar & Multi-Module Job Scheduling API
+// -------------------------------------------------------------
+export async function fetchCalendarMonthSchedule(year, month, module = 'ALL') {
+  const params = new URLSearchParams({
+    action: 'month_schedule',
+    year: year || new Date().getFullYear(),
+    month: month || (new Date().getMonth() + 1),
+    module: module || 'ALL'
+  });
+  const res = await fetch(`${API_BASE}/calendar_schedules.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch calendar monthly schedule');
+  return res.json();
+}
+
+export async function fetchCalendarDayTasks(date) {
+  const params = new URLSearchParams({
+    action: 'day_tasks',
+    date: date
+  });
+  const res = await fetch(`${API_BASE}/calendar_schedules.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch scheduled day tasks');
+  return res.json();
+}
+
+export async function completeCalendarTask(data) {
+  const res = await fetch(`${API_BASE}/calendar_schedules.php?action=complete_task`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to complete task');
+  return json;
+}
+
+// --------------------------------------------------------------------------
+// Multi-Technician Phase Assignments & Mobile Portal API
+// --------------------------------------------------------------------------
+export async function fetchPmAssignments(equipmentId, pmDueDate) {
+  const params = new URLSearchParams({
+    action: 'get_assignments',
+    equipment_id: equipmentId
+  });
+  if (pmDueDate) params.append('pm_due_date', pmDueDate);
+
+  const res = await fetch(`${API_BASE}/pm_assignments.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch PM phase assignments');
+  return res.json();
+}
+
+export async function savePmAssignments(data) {
+  const res = await fetch(`${API_BASE}/pm_assignments.php?action=save_assignments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to save phase assignments');
+  return json;
+}
+
+export async function fetchMyAssignedTasks(employeeId, badge, status = 'ALL') {
+  const params = new URLSearchParams({
+    action: 'my_tasks',
+    status: status || 'ALL'
+  });
+  if (employeeId) params.append('employee_id', employeeId);
+  if (badge) params.append('employee_badge', badge);
+
+  const res = await fetch(`${API_BASE}/pm_assignments.php?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch assigned tasks');
+  return res.json();
+}
+
+export async function scanEquipmentByQr(token) {
+  const params = new URLSearchParams({
+    action: 'scan_qr',
+    token: token
+  });
+  const res = await fetch(`${API_BASE}/pm_assignments.php?${params.toString()}`);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'QR equipment not found');
+  return json;
+}
+
+export async function submitPmPhase(data) {
+  const res = await fetch(`${API_BASE}/pm_assignments.php?action=submit_phase`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to submit PM phase verification');
+  return json;
+}
+
+export async function uploadPaperWorksheetPhoto(formData) {
+  const res = await fetch(`${API_BASE}/upload_attachment.php`, {
+    method: 'POST',
+    body: formData
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to upload paper worksheet photo');
+  return json;
+}
+
+// =========================================================================
+// Unified Mobile Field Portal & QR Launch APIs
+// =========================================================================
+
+export async function fetchMobileNetworkInfo() {
+  const res = await fetch(`${API_BASE}/mobile_portal.php?action=network_info`);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to fetch network info');
+  return json;
+}
+
+export async function fetchMobileUserCategories(employeeId = null, employeeName = '') {
+  let url = `${API_BASE}/mobile_portal.php?action=user_categories`;
+  if (employeeId) url += `&employee_id=${employeeId}`;
+  if (employeeName) url += `&employee_name=${encodeURIComponent(employeeName)}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to fetch user categories');
+  return json;
+}
+
+export async function fetchMobileCategoryJobs(category = 'pm', employeeId = null, employeeName = '', status = 'ALL') {
+  let url = `${API_BASE}/mobile_portal.php?action=category_jobs&category=${category}&status=${status}`;
+  if (employeeId) url += `&employee_id=${employeeId}`;
+  if (employeeName) url += `&employee_name=${encodeURIComponent(employeeName)}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to fetch category jobs');
+  return json;
+}
+
+export async function fetchMobileJobTasks(category = 'pm', jobId) {
+  const res = await fetch(`${API_BASE}/mobile_portal.php?action=job_tasks&category=${category}&job_id=${jobId}`);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to fetch job tasks');
+  return json;
+}
+
+export async function saveMobileJobProgress(payload) {
+  const res = await fetch(`${API_BASE}/mobile_portal.php?action=save_job_progress`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to save job progress');
+  return json;
+}
+
+export async function submitMobileJob(payload) {
+  const res = await fetch(`${API_BASE}/mobile_portal.php?action=submit_job`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to submit mobile job');
+  return json;
+}
+
+export async function adminAssignMobileJob(payload) {
+  const res = await fetch(`${API_BASE}/mobile_portal.php?action=admin_assign`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || 'Failed to assign job');
+  return json;
+}

@@ -42,6 +42,7 @@ export default function EditSiteAuditModal({
     lead_biomedical_engineer: '',
     target_installation_date: '',
     overall_status: 'Under Inspection',
+    notes: '',
     special_notes: ''
   });
 
@@ -53,6 +54,7 @@ export default function EditSiteAuditModal({
 
   useEffect(() => {
     if (audit) {
+      const existingNotes = audit.notes || audit.special_notes || '';
       setFormData({
         id: audit.id,
         country_code: audit.country_code || 'BH',
@@ -66,7 +68,8 @@ export default function EditSiteAuditModal({
         lead_biomedical_engineer: audit.lead_biomedical_engineer || '',
         target_installation_date: audit.target_installation_date ? audit.target_installation_date.slice(0, 10) : '',
         overall_status: audit.overall_status || 'Under Inspection',
-        special_notes: audit.special_notes || ''
+        notes: existingNotes,
+        special_notes: existingNotes
       });
     }
   }, [audit, isOpen]);
@@ -366,8 +369,8 @@ export default function EditSiteAuditModal({
             <textarea
               className="form-control"
               rows={3}
-              value={formData.special_notes}
-              onChange={(e) => setFormData({ ...formData, special_notes: e.target.value })}
+              value={formData.notes ?? formData.special_notes ?? ''}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value, special_notes: e.target.value })}
               placeholder="e.g. Pre-installation room civil works complete. EWA electrical test certificate attached."
             />
           </div>

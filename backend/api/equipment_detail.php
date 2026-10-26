@@ -95,6 +95,15 @@ try {
     $stmt->execute([$equipmentId]);
     $rfid_logs = $stmt->fetchAll();
 
+    // 7. Fetch active PM Draft if any
+    $stmt = $pdo->prepare("SELECT * FROM pm_checklist_drafts WHERE equipment_id = ? AND status = 'in_progress' LIMIT 1");
+    $stmt->execute([$equipmentId]);
+    $pmDraft = $stmt->fetch();
+    if ($pmDraft) {
+        $pmDraft['answers'] = !empty($pmDraft['answers_json']) ? json_decode($pmDraft['answers_json'], true) : [];
+        unset($pmDraft['answers_json']);
+    }
+
     jsonResponse([
         'status' => 'success',
         'data' => [
@@ -104,7 +113,8 @@ try {
             'complaints' => $complaints,
             'checklist_template' => $template,
             'checklist_items' => $checklist_items,
-            'rfid_logs' => $rfid_logs
+            'rfid_logs' => $rfid_logs,
+            'pm_draft' => $pmDraft ?: null
         ]
     ]);
 } catch (PDOException $e) {

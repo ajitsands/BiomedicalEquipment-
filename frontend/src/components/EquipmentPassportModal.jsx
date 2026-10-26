@@ -214,14 +214,14 @@ export default function EquipmentPassportModal({
             </button>
             <button
               type="button"
-              className="btn btn-outline-primary btn-sm"
+              className={data?.pm_draft ? "btn btn-primary btn-sm" : "btn btn-outline-primary btn-sm"}
               onClick={() => {
                 onClose();
                 onOpenChecklistRunner(eq);
               }}
             >
               <CheckSquare size={15} />
-              Execute PM Checklist
+              {data?.pm_draft ? `Resume PM (${data.pm_draft.progress_percent}%)` : 'Execute PM Checklist'}
             </button>
             <button
               type="button"
@@ -295,6 +295,43 @@ export default function EquipmentPassportModal({
               </div>
             </div>
           </div>
+
+          {data?.pm_draft && (
+            <div style={{
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: 'var(--radius-md)',
+              padding: '12px 18px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Clock size={20} style={{ color: '#2563eb' }} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e40af' }}>
+                    Active PM Checklist In-Progress ({data.pm_draft.progress_percent}% Completed)
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#1e40af' }}>
+                    {data.pm_draft.completed_count} of {data.pm_draft.total_items} steps verified. Saved on {new Date(data.pm_draft.updated_at).toLocaleDateString()}. Finish remaining steps to generate the official certificate.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  onClose();
+                  onOpenChecklistRunner(eq);
+                }}
+              >
+                <CheckSquare size={14} /> Resume In-Progress PM
+              </button>
+            </div>
+          )}
 
           {/* Navigation Tabs */}
           <div className="tabs-nav">

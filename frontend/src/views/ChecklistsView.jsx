@@ -336,7 +336,7 @@ export default function ChecklistsView({
                         .filter(e => e.equipment_type_id === selectedTemplate.equipment_type_id)
                         .map(e => (
                           <option key={e.id} value={e.id}>
-                            {e.name} ({e.asset_id})
+                            {e.name} ({e.asset_id}) {e.pm_draft_id ? `• In-Progress (${e.pm_draft_progress_percent}%)` : ''}
                           </option>
                         ))}
                     </select>

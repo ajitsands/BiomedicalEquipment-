@@ -157,6 +157,10 @@ if ($method === 'GET') {
             WHERE id = ?");
         $stmtUpdateEq->execute([$performedDate, $nextPmDue, $newEqStatus, $equipmentId]);
 
+        // Clean up any in-progress PM draft for this equipment
+        $stmtDeleteDraft = $pdo->prepare("DELETE FROM pm_checklist_drafts WHERE equipment_id = ?");
+        $stmtDeleteDraft->execute([$equipmentId]);
+
         $pdo->commit();
 
         jsonResponse([

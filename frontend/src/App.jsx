@@ -11,6 +11,8 @@ import ComplaintsView from './views/ComplaintsView';
 import RfidView from './views/RfidView';
 import ReportsView from './views/ReportsView';
 import SitePreparationView from './views/SitePreparationView';
+import HousekeepingView from './views/HousekeepingView';
+import CalendarView from './views/CalendarView';
 
 // Modals
 import EquipmentPassportModal from './components/EquipmentPassportModal';
@@ -31,9 +33,22 @@ import PartnersModal from './components/PartnersModal';
 import EmployeesModal from './components/EmployeesModal';
 import UserLoginModal from './components/UserLoginModal';
 
-import { fetchDashboardStats } from './services/api';
+// Housekeeping Modals
+import BookHousekeepingComplaintModal from './components/BookHousekeepingComplaintModal';
+import HousekeepingInspectionRunnerModal from './components/HousekeepingInspectionRunnerModal';
+import HousekeepingCertificateModal from './components/HousekeepingCertificateModal';
+import HousekeepingComplaintDetailModal from './components/HousekeepingComplaintDetailModal';
 
-const VALID_VIEWS = ['dashboard', 'equipments', 'checklists', 'complaints', 'rfid', 'reports', 'site_preparation'];
+// Mobile Field Portal & Printable A4 Worksheets
+import PrintablePhaseWorksheetModal from './components/PrintablePhaseWorksheetModal';
+import AssignPhasesModal from './components/AssignPhasesModal';
+import MobileTechPortalModal from './components/MobileTechPortalModal';
+import MobilePortalLauncherModal from './components/MobilePortalLauncherModal';
+import MobilePortalView from './views/MobilePortalView';
+
+import { fetchDashboardStats, fetchHousekeepingStats } from './services/api';
+
+const VALID_VIEWS = ['dashboard', 'equipments', 'site_preparation', 'housekeeping', 'calendar', 'checklists', 'complaints', 'rfid', 'reports', 'mobile'];
 
 export default function App() {
   // Theme state: Default Light, can toggle to Dark
@@ -72,6 +87,11 @@ export default function App() {
   const [isComplianceOpen, setIsComplianceOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Mobile Field Portal & Printable A4 Worksheets State
+  const [isMobilePortalOpen, setIsMobilePortalOpen] = useState(false);
+  const [assignPhasesTarget, setAssignPhasesTarget] = useState(null);
+  const [printWorksheetTarget, setPrintWorksheetTarget] = useState(null);
+
   // Version 2.0: Site Preparation State
   const [isNewSiteAuditOpen, setIsNewSiteAuditOpen] = useState(false);
   const [activeSiteInspectionId, setActiveSiteInspectionId] = useState(null);
@@ -79,6 +99,14 @@ export default function App() {
   const [activeSiteCertificate, setActiveSiteCertificate] = useState(null);
   const [activeEditAudit, setActiveEditAudit] = useState(null);
   const [sitePrepRefreshKey, setSitePrepRefreshKey] = useState(0);
+
+  // Housekeeping & Infection Control State (Bahrain NHRA & WHO)
+  const [isBookHkComplaintOpen, setIsBookHkComplaintOpen] = useState(false);
+  const [activeHkInspectionId, setActiveHkInspectionId] = useState(null);
+  const [activeHkCertificate, setActiveHkCertificate] = useState(null);
+  const [activeHkComplaintId, setActiveHkComplaintId] = useState(null);
+  const [hkRefreshKey, setHkRefreshKey] = useState(0);
+  const [activeHousekeepingCount, setActiveHousekeepingCount] = useState(0);
 
   // Badge counters
   const [activeComplaintsCount, setActiveComplaintsCount] = useState(0);
@@ -115,11 +143,15 @@ export default function App() {
 
   const loadBadgeCounts = async () => {
     try {
-      const res = await fetchDashboardStats();
+      const [res, hkRes] = await Promise.all([
+        fetchDashboardStats(),
+        fetchHousekeepingStats().catch(() => ({ data: { active_complaints: 0 } }))
+      ]);
       const complaints = res.data?.complaints;
       const pm = res.data?.pm_schedules;
       setActiveComplaintsCount(complaints?.active_complaints || 0);
       setOverduePmCount(pm?.pm_overdue || 0);
+      setActiveHousekeepingCount(hkRes.data?.active_complaints || 0);
     } catch (err) {
       console.error('Badge update error', err);
     }
@@ -129,7 +161,19 @@ export default function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const showToast = ({ type = 'success', title = '', message = '' }) => {
+  const showToast = (toastOrMessage, maybeType = 'success') => {
+    let type = 'success';
+    let title = '';
+    let message = '';
+    if (typeof toastOrMessage === 'string') {
+      message = toastOrMessage;
+      type = maybeType;
+      title = type === 'error' ? 'Error' : type === 'warning' ? 'Notice' : 'Success';
+    } else if (toastOrMessage && typeof toastOrMessage === 'object') {
+      type = toastOrMessage.type || 'success';
+      title = toastOrMessage.title || (type === 'error' ? 'Error' : type === 'warning' ? 'Notice' : 'Success');
+      message = toastOrMessage.message || '';
+    }
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, type, title, message }]);
     setTimeout(() => {
@@ -148,23 +192,27 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Horizontal Top Navigation */}
-      <Navbar
-        currentView={currentView}
-        setCurrentView={setCurrentView}
-        theme={theme}
-        toggleTheme={toggleTheme}
-        onOpenBookComplaint={() => handleOpenBookComplaint(null)}
-        onOpenNewEquipment={() => setIsNewEquipmentOpen(true)}
-        onOpenDepartments={() => setIsDepartmentsOpen(true)}
-        onOpenPartners={() => setIsPartnersOpen(true)}
-        onOpenEmployees={() => setIsEmployeesOpen(true)}
-        onOpenUserLogin={() => setIsUserLoginOpen(true)}
-        onOpenSandsSupport={() => setIsSandsSupportOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        activeComplaintsCount={activeComplaintsCount}
-        overduePmCount={overduePmCount}
-      />
+      {/* Horizontal Top Navigation (Hidden in Pure Mobile View) */}
+      {currentView !== 'mobile' && (
+        <Navbar
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          onOpenBookComplaint={() => handleOpenBookComplaint(null)}
+          onOpenNewEquipment={() => setIsNewEquipmentOpen(true)}
+          onOpenDepartments={() => setIsDepartmentsOpen(true)}
+          onOpenPartners={() => setIsPartnersOpen(true)}
+          onOpenEmployees={() => setIsEmployeesOpen(true)}
+          onOpenUserLogin={() => setIsUserLoginOpen(true)}
+          onOpenSandsSupport={() => setIsSandsSupportOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenMobilePortal={() => setIsMobilePortalOpen(true)}
+          activeComplaintsCount={activeComplaintsCount}
+          overduePmCount={overduePmCount}
+          activeHousekeepingCount={activeHousekeepingCount}
+        />
+      )}
 
       {/* Main View Router */}
       <main className="main-content">
@@ -239,14 +287,53 @@ export default function App() {
             refreshKey={sitePrepRefreshKey}
           />
         )}
+
+        {/* Housekeeping & Infection Control View */}
+        {currentView === 'housekeeping' && (
+          <HousekeepingView
+            onOpenBookComplaint={() => setIsBookHkComplaintOpen(true)}
+            onRunInspection={(id) => setActiveHkInspectionId(id)}
+            onViewCertificate={(insp) => setActiveHkCertificate(insp)}
+            onViewComplaintDetail={(id) => setActiveHkComplaintId(id)}
+            onShowToast={showToast}
+            refreshKey={hkRefreshKey}
+          />
+        )}
+
+        {/* Master Operations & Jobs Calendar View */}
+        {currentView === 'calendar' && (
+          <CalendarView
+            onRunChecklist={(eq) => setChecklistEquipment(eq)}
+            onRunSiteAudit={(id) => setActiveSiteInspectionId(id)}
+            onRunHkInspection={(id) => setActiveHkInspectionId(id)}
+            onViewSiteCertificate={(insp) => setActiveSiteCertificate(insp)}
+            onViewHkCertificate={(insp) => setActiveHkCertificate(insp)}
+            onViewDeficiency={(def) => setActiveDeficiency(def)}
+            onAssignPhases={(eq, dueDate) => setAssignPhasesTarget({ equipment: eq, pmDueDate: dueDate })}
+            onPrintWorksheet={(eq, dueDate, phase, tech) => {
+              setPrintWorksheetTarget({ equipment: eq, pmDueDate: dueDate, initialPhase: phase, assignedTechnician: tech });
+            }}
+            onShowToast={showToast}
+          />
+        )}
+
+        {/* Dedicated Mobile Field Staff Portal */}
+        {currentView === 'mobile' && (
+          <MobilePortalView
+            onShowToast={showToast}
+            onExitMobile={() => setCurrentView('dashboard')}
+          />
+        )}
       </main>
 
-      {/* Official SaNDS Lab Footer */}
-      <Footer 
-        theme={theme} 
-        onOpenSandsSupport={() => setIsSandsSupportOpen(true)}
-        onOpenComplianceModal={() => setIsComplianceOpen(true)}
-      />
+      {/* Official SaNDS Lab Footer (Hidden in Pure Mobile View) */}
+      {currentView !== 'mobile' && (
+        <Footer 
+          theme={theme} 
+          onOpenSandsSupport={() => setIsSandsSupportOpen(true)}
+          onOpenComplianceModal={() => setIsComplianceOpen(true)}
+        />
+      )}
 
       {/* Interactive Global Modals */}
       {passportEquipmentId && (
@@ -270,6 +357,9 @@ export default function App() {
             setDataRefreshKey(prev => prev + 1);
           }}
           onShowToast={showToast}
+          onOpenPrintWorksheet={(eq, dueDate, phase) => {
+            setPrintWorksheetTarget({ equipment: eq, pmDueDate: dueDate, initialPhase: phase });
+          }}
         />
       )}
 
@@ -446,6 +536,100 @@ export default function App() {
             setSitePrepRefreshKey(k => k + 1);
             setActiveEditAudit(null);
           }}
+          onShowToast={showToast}
+        />
+      )}
+
+      {/* Housekeeping & Infection Control Modals */}
+      {isBookHkComplaintOpen && (
+        <BookHousekeepingComplaintModal
+          isOpen={isBookHkComplaintOpen}
+          onClose={() => setIsBookHkComplaintOpen(false)}
+          onSuccess={() => {
+            setHkRefreshKey(k => k + 1);
+            loadBadgeCounts();
+          }}
+          onShowToast={showToast}
+        />
+      )}
+
+      {activeHkInspectionId && (
+        <HousekeepingInspectionRunnerModal
+          inspectionId={activeHkInspectionId}
+          isOpen={Boolean(activeHkInspectionId)}
+          onClose={() => setActiveHkInspectionId(null)}
+          onSuccess={() => {
+            setHkRefreshKey(k => k + 1);
+            loadBadgeCounts();
+          }}
+          onShowToast={showToast}
+          onViewCertificate={(insp) => setActiveHkCertificate(insp)}
+        />
+      )}
+
+      {activeHkCertificate && (
+        <HousekeepingCertificateModal
+          inspection={activeHkCertificate}
+          isOpen={Boolean(activeHkCertificate)}
+          onClose={() => setActiveHkCertificate(null)}
+        />
+      )}
+
+      {activeHkComplaintId && (
+        <HousekeepingComplaintDetailModal
+          complaintId={activeHkComplaintId}
+          isOpen={Boolean(activeHkComplaintId)}
+          onClose={() => setActiveHkComplaintId(null)}
+          onSuccess={() => {
+            setHkRefreshKey(k => k + 1);
+            loadBadgeCounts();
+          }}
+          onShowToast={showToast}
+        />
+      )}
+
+      {/* Mobile Field Staff Portal Launcher & QR Scanner Modal */}
+      {isMobilePortalOpen && (
+        <MobilePortalLauncherModal
+          isOpen={isMobilePortalOpen}
+          onClose={() => {
+            setIsMobilePortalOpen(false);
+            setDataRefreshKey(k => k + 1);
+          }}
+          onLaunchMobileView={() => {
+            setIsMobilePortalOpen(false);
+            setCurrentView('mobile');
+          }}
+          onShowToast={showToast}
+        />
+      )}
+
+      {/* Multi-Technician Phase Delegation Modal */}
+      {assignPhasesTarget && (
+        <AssignPhasesModal
+          isOpen={Boolean(assignPhasesTarget)}
+          equipment={assignPhasesTarget.equipment}
+          pmDueDate={assignPhasesTarget.pmDueDate}
+          onClose={() => {
+            setAssignPhasesTarget(null);
+            setDataRefreshKey(k => k + 1);
+          }}
+          onOpenPrintWorksheet={(eq, dueDate, phase, tech) => {
+            setPrintWorksheetTarget({ equipment: eq, pmDueDate: dueDate, initialPhase: phase, assignedTechnician: tech });
+          }}
+          onShowToast={showToast}
+        />
+      )}
+
+      {/* Printable A4 Phase Worksheet Modal (Sterile Zone Fallback) */}
+      {printWorksheetTarget && (
+        <PrintablePhaseWorksheetModal
+          isOpen={Boolean(printWorksheetTarget)}
+          equipment={printWorksheetTarget.equipment}
+          pmDueDate={printWorksheetTarget.pmDueDate}
+          initialPhase={printWorksheetTarget.initialPhase || 'ALL'}
+          assignedTechnician={printWorksheetTarget.assignedTechnician}
+          onClose={() => setPrintWorksheetTarget(null)}
           onShowToast={showToast}
         />
       )}

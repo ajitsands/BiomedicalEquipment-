@@ -22,7 +22,7 @@ export default function SiteCertificateModal({
   certificate,
   inspection
 }) {
-  const { formatDate, formatDateTime } = useSettings();
+  const { settings, formatDate, formatDateTime } = useSettings();
   const printRef = useRef(null);
 
   if (!isOpen || !inspection) return null;
@@ -35,6 +35,8 @@ export default function SiteCertificateModal({
   };
 
   const readinessScore = certificate?.approved_readiness_score || inspection?.readiness_percentage || 100.0;
+  const companyName = settings?.company_name || 'SaNDS Lab Middle East W.L.L';
+  const companyLogo = settings?.company_logo || '/sands_logo.png';
 
   return (
     <Modal
@@ -45,6 +47,43 @@ export default function SiteCertificateModal({
       icon={Award}
       size="xl"
     >
+      {/* Embedded A4 Landscape Print Stylesheet */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 6mm 10mm;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          .site-certificate-print-sheet,
+          .site-certificate-print-sheet * {
+            visibility: visible !important;
+          }
+          .site-certificate-print-sheet {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100vw !important;
+            max-width: 100% !important;
+            height: 100vh !important;
+            box-sizing: border-box !important;
+            padding: 6mm 10mm !important;
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         
         {/* Top Action Bar */}
@@ -69,38 +108,40 @@ export default function SiteCertificateModal({
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <Printer size={15} />
-              <span>Print Official Certificate</span>
+              <span>Print Official Certificate (A4 Landscape)</span>
             </button>
           </div>
         </div>
 
         {/* Printable Certificate Document Sheet */}
         <div 
+          className="site-certificate-print-sheet"
           ref={printRef}
           style={{
             backgroundColor: '#ffffff',
             color: '#0f172a',
             border: '2px solid #0284c7',
             borderRadius: '12px',
-            padding: '36px 40px',
+            padding: '28px 36px',
             boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
             fontFamily: 'Inter, system-ui, sans-serif'
           }}
         >
           {/* Official Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px double #0284c7', paddingBottom: '20px', marginBottom: '24px' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '42px', height: '42px', backgroundColor: '#0284c7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                  <ShieldCheck size={26} />
-                </div>
-                <div>
-                  <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0, color: '#0f172a', letterSpacing: '-0.3px' }}>
-                    BIOMEDICAL SITE PREPARATION CLEARANCE CERTIFICATE
-                  </h2>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0284c7', marginTop: '2px' }}>
-                    BioTrack CMMS Version 2.0 • Healthcare Engineering Commissioning Protocol
-                  </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px double #0284c7', paddingBottom: '16px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', maxWidth: '65%' }}>
+              <img 
+                src={companyLogo} 
+                alt={companyName} 
+                style={{ maxHeight: '52px', maxWidth: '150px', objectFit: 'contain' }}
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+                  {companyName}
+                </h2>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0284c7', marginTop: '2px' }}>
+                  Biomedical Site Preparation & Infrastructure Clearance • {inspection.facility_name}
                 </div>
               </div>
             </div>

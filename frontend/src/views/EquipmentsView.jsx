@@ -198,9 +198,31 @@ export default function EquipmentsView({
       render: (row) => {
         const isOverdue = row.next_pm_due_date && new Date(row.next_pm_due_date) < new Date();
         return (
-          <div style={{ color: isOverdue ? 'var(--color-danger)' : 'inherit', fontWeight: isOverdue ? 700 : 500 }}>
-            {formatDate(row.next_pm_due_date)}
-            {isOverdue && <div style={{ fontSize: '0.72rem' }}>⚠️ Overdue</div>}
+          <div>
+            <div style={{ color: isOverdue ? 'var(--color-danger)' : 'inherit', fontWeight: isOverdue ? 700 : 500 }}>
+              {formatDate(row.next_pm_due_date)}
+              {isOverdue && <div style={{ fontSize: '0.72rem' }}>⚠️ Overdue</div>}
+            </div>
+            {row.pm_draft_id && (
+              <div style={{ 
+                marginTop: '4px',
+                fontSize: '0.7rem', 
+                color: '#2563eb', 
+                fontWeight: 700, 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '3px',
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                padding: '1px 6px',
+                borderRadius: '4px'
+              }}
+              title={`PM Checklist in progress: ${row.pm_draft_completed_count}/${row.pm_draft_total_items} items completed`}
+              >
+                <Clock size={10} />
+                <span>In-Progress ({row.pm_draft_progress_percent}%)</span>
+              </div>
+            )}
           </div>
         );
       }
@@ -221,11 +243,24 @@ export default function EquipmentsView({
           </button>
           <button
             type="button"
-            className="btn btn-outline-primary btn-icon btn-sm"
+            className={row.pm_draft_id ? "btn btn-primary btn-icon btn-sm" : "btn btn-outline-primary btn-icon btn-sm"}
             onClick={() => onRunChecklist(row)}
-            title="Execute WHO PM Checklist"
+            title={row.pm_draft_id ? `Resume In-Progress PM (${row.pm_draft_progress_percent}% completed)` : "Execute WHO PM Checklist"}
+            style={row.pm_draft_id ? { position: 'relative' } : undefined}
           >
             <CheckSquare size={15} />
+            {row.pm_draft_id && (
+              <span style={{
+                position: 'absolute',
+                top: '-3px',
+                right: '-3px',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#f59e0b',
+                border: '1.5px solid #fff'
+              }} />
+            )}
           </button>
           <button
             type="button"

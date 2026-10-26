@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 try {
     $equipmentId = !empty($_POST['equipment_id']) ? (int)$_POST['equipment_id'] : 0;
     $complaintId = !empty($_POST['complaint_id']) ? (int)$_POST['complaint_id'] : 0;
+    $pmAssignmentId = !empty($_POST['pm_assignment_id']) ? (int)$_POST['pm_assignment_id'] : 0;
     $docType = !empty($_POST['document_type']) ? $_POST['document_type'] : 'Service Report';
     $fileTitle = !empty($_POST['file_title']) ? trim($_POST['file_title']) : 'Service Report Attachment';
 
@@ -55,6 +56,12 @@ try {
     if ($complaintId > 0) {
         $stmtComp = $pdo->prepare("UPDATE complaints SET service_attachment_url = ?, service_attachment_name = ? WHERE id = ?");
         $stmtComp->execute([$filePath, $originalName ?? $fileName, $complaintId]);
+    }
+
+    // If pmAssignmentId provided, update pm_phase_assignments paper photo URL
+    if ($pmAssignmentId > 0) {
+        $stmtPm = $pdo->prepare("UPDATE pm_phase_assignments SET paper_scanned_photo_url = ? WHERE id = ?");
+        $stmtPm->execute([$filePath, $pmAssignmentId]);
     }
 
     jsonResponse([

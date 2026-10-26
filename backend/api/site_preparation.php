@@ -158,6 +158,17 @@ if ($method === 'GET') {
             WHERE i.id = ?");
             $stmt->execute([$id]);
             $inspection = $stmt->fetch();
+            if (!$inspection) {
+                // Fallback: Check if $id was passed from a deficiency ticket
+                $defLookup = $pdo->prepare("SELECT inspection_id FROM site_deficiencies WHERE id = ?");
+                $defLookup->execute([$id]);
+                $parentInspId = $defLookup->fetchColumn();
+                if ($parentInspId) {
+                    $id = (int)$parentInspId;
+                    $stmt->execute([$id]);
+                    $inspection = $stmt->fetch();
+                }
+            }
             if (!$inspection) jsonError('Inspection audit not found', 404);
 
             // 2. Checklist Items & Existing Results
@@ -358,10 +369,33 @@ if ($method === 'POST') {
         if ($id <= 0) jsonError('Invalid inspection audit ID.');
 
         try {
+            $deptId = !empty($input['department_id']) ? (int)$input['department_id'] : null;
+            $equipTypeId = !empty($input['equipment_type_id']) ? (int)$input['equipment_type_id'] : null;
+            $vendorId = !empty($input['vendor_id']) ? (int)$input['vendor_id'] : null;
+            $targetInstallDate = !empty($input['target_installation_date']) ? $input['target_installation_date'] : null;
+            $notes = array_key_exists('notes', $input) 
+                ? $input['notes'] 
+                : ($input['special_notes'] ?? null);
+
+            // Fetch building & floor if department changed
+            $building = $input['building'] ?? null;
+            $floor = $input['floor'] ?? null;
+            if ($deptId && (!$building || !$floor)) {
+                $deptStmt = $pdo->prepare("SELECT building, floor FROM departments WHERE id = ?");
+                $deptStmt->execute([$deptId]);
+                $deptRow = $deptStmt->fetch();
+                if ($deptRow) {
+                    if (!$building) $building = $deptRow['building'];
+                    if (!$floor) $floor = $deptRow['floor'];
+                }
+            }
+
             $stmt = $pdo->prepare("UPDATE site_inspections SET
                 facility_name = COALESCE(?, facility_name),
                 room_number = COALESCE(?, room_number),
                 department_id = COALESCE(?, department_id),
+                building = COALESCE(?, building),
+                floor = COALESCE(?, floor),
                 equipment_type_id = COALESCE(?, equipment_type_id),
                 vendor_id = ?,
                 country_code = COALESCE(?, country_code),
@@ -370,22 +404,24 @@ if ($method === 'POST') {
                 vendor_project_manager = COALESCE(?, vendor_project_manager),
                 target_installation_date = COALESCE(?, target_installation_date),
                 overall_status = COALESCE(?, overall_status),
-                special_notes = COALESCE(?, special_notes)
+                notes = COALESCE(?, notes)
                 WHERE id = ?");
 
             $stmt->execute([
                 $input['facility_name'] ?? null,
                 $input['room_number'] ?? null,
-                isset($input['department_id']) ? (int)$input['department_id'] : null,
-                isset($input['equipment_type_id']) ? (int)$input['equipment_type_id'] : null,
-                !empty($input['vendor_id']) ? (int)$input['vendor_id'] : null,
+                $deptId,
+                $building,
+                $floor,
+                $equipTypeId,
+                $vendorId,
                 $input['country_code'] ?? null,
                 $input['target_model'] ?? null,
                 $input['lead_biomedical_engineer'] ?? null,
                 $input['vendor_project_manager'] ?? null,
-                $input['target_installation_date'] ?? null,
+                $targetInstallDate,
                 $input['overall_status'] ?? null,
-                $input['special_notes'] ?? null,
+                $notes,
                 $id
             ]);
 

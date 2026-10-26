@@ -27,10 +27,6 @@ if ($method === 'GET') {
         $templateId = !empty($_GET['template_id']) ? (int)$_GET['template_id'] : 0;
         $phase = !empty($_GET['phase']) ? trim($_GET['phase']) : '';
 
-        if (!$typeId && !$templateId) {
-            jsonError('Provide equipment_type_id or template_id or all_templates=1');
-        }
-
         if ($typeId) {
             $stmt = $pdo->prepare("SELECT ct.*, et.name as equipment_type_name, et.risk_classification, et.asset_type_code, et.department_scope, et.common_complaints, et.suggested_pm_schedule, et.default_protection_class, et.default_applied_part_type
                 FROM checklist_templates ct 
@@ -38,12 +34,19 @@ if ($method === 'GET') {
                 WHERE ct.equipment_type_id = ? LIMIT 1");
             $stmt->execute([$typeId]);
             $template = $stmt->fetch();
-        } else {
+        } elseif ($templateId) {
             $stmt = $pdo->prepare("SELECT ct.*, et.name as equipment_type_name, et.risk_classification, et.asset_type_code, et.department_scope, et.common_complaints, et.suggested_pm_schedule, et.default_protection_class, et.default_applied_part_type
                 FROM checklist_templates ct 
                 JOIN equipment_types et ON ct.equipment_type_id = et.id 
                 WHERE ct.id = ? LIMIT 1");
             $stmt->execute([$templateId]);
+            $template = $stmt->fetch();
+        } else {
+            // Graceful fallback: Pick default WHO biomedical checklist template
+            $stmt = $pdo->query("SELECT ct.*, et.name as equipment_type_name, et.risk_classification, et.asset_type_code, et.department_scope, et.common_complaints, et.suggested_pm_schedule, et.default_protection_class, et.default_applied_part_type
+                FROM checklist_templates ct 
+                JOIN equipment_types et ON ct.equipment_type_id = et.id 
+                ORDER BY ct.id ASC LIMIT 1");
             $template = $stmt->fetch();
         }
 
