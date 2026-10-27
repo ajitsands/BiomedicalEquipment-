@@ -154,13 +154,26 @@ export default function MobilePortalView({
   const handleOpenJobRunner = async (job) => {
     setSelectedJob(job);
     setCurrentScreen('runner');
+    setTaskItems([]);
+    setItemStatuses({});
+    setItemFindings({});
+    setItemAtp({});
+    setEngineerNotes('');
     try {
       setLoadingTasks(true);
       const jobId = job.id || job.equipment_id;
       const res = await fetchMobileJobTasks(selectedCategory, jobId);
       if (res && res.status === 'success') {
         setJobDetail(res.data.detail);
-        const items = res.data.items || [];
+        const rawItems = res.data.items || [];
+        // Strictly deduplicate by checklist_item_id to prevent duplicate cards
+        const seenIds = new Set();
+        const items = rawItems.filter(it => {
+          const id = it.checklist_item_id || it.id;
+          if (!id || seenIds.has(id)) return false;
+          seenIds.add(id);
+          return true;
+        });
         setTaskItems(items);
 
         // Prepopulate statuses & findings
@@ -548,13 +561,13 @@ export default function MobilePortalView({
               marginBottom: '20px',
               boxShadow: '0 4px 14px rgba(2, 132, 199, 0.25)'
             }}>
-              <div style={{ fontSize: '0.75rem', opacity: 0.9, textTransform: 'uppercase', fontWeight: 700 }}>
+              <div style={{ fontSize: '0.75rem', opacity: 0.9, textTransform: 'uppercase', fontWeight: 700, color: '#e0f2fe' }}>
                 Hospital Field Staff Portal
               </div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '4px 0 2px' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '4px 0 2px', color: '#ffffff' }}>
                 Hello, {currentUser.full_name}
               </h2>
-              <div style={{ fontSize: '0.8rem', opacity: 0.95 }}>
+              <div style={{ fontSize: '0.8rem', opacity: 0.95, color: '#f0f9ff' }}>
                 {currentUser.role || currentUser.designation} • {settings?.hospital_name || 'Hospital Biomedical Service'}
               </div>
             </div>
@@ -687,25 +700,26 @@ export default function MobilePortalView({
         {currentScreen === 'jobs' && (
           <div>
             {/* Header with Back button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
               <button
                 type="button"
                 onClick={() => setCurrentScreen('categories')}
                 style={{
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                  border: 'none',
                   borderRadius: '8px',
-                  padding: '6px 10px',
+                  padding: '7px 14px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.8rem',
+                  gap: '6px',
+                  fontSize: '0.82rem',
                   fontWeight: 700,
-                  color: '#475569'
+                  color: '#ffffff',
+                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.28)'
                 }}
               >
-                <ArrowLeft size={16} /> Back
+                <ArrowLeft size={16} color="#ffffff" /> Back
               </button>
               <div>
                 <h2 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, textTransform: 'capitalize' }}>
@@ -759,9 +773,10 @@ export default function MobilePortalView({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {jobs
                   .filter(job => {
-                    const status = job.status || job.overall_status || 'Pending';
-                    if (jobFilter === 'Pending') return status !== 'Completed' && status !== 'Resolved' && status !== 'Passed' && status !== 'Approved';
-                    if (jobFilter === 'Completed') return status === 'Completed' || status === 'Resolved' || status === 'Passed' || status === 'Approved';
+                    const status = String(job.status || job.overall_status || 'Pending');
+                    const isDone = status === 'Completed' || status === 'Resolved' || status === 'Passed' || status.includes('Approved');
+                    if (jobFilter === 'Pending') return !isDone;
+                    if (jobFilter === 'Completed') return isDone;
                     return true;
                   })
                   .map(job => {
@@ -769,8 +784,9 @@ export default function MobilePortalView({
                     const assetId = job.asset_id || job.ticket_number || job.audit_number || `#${id}`;
                     const title = job.equipment_name || job.name || job.target_model || job.room_number || 'Hospital Task';
                     const location = job.department_name ? `${job.department_name} • ${job.room_number || ''}` : `${job.building || ''} ${job.floor || ''}`;
-                    const isCompleted = job.status === 'Completed' || job.status === 'Resolved' || job.status === 'Passed' || job.status === 'Approved';
-                    const hasDraft = job.draft_percent > 0;
+                    const rawStatus = String(job.status || job.overall_status || 'Pending');
+                    const isCompleted = rawStatus === 'Completed' || rawStatus === 'Resolved' || rawStatus === 'Passed' || rawStatus.includes('Approved');
+                    const hasDraft = job.draft_percent > 0 && !isCompleted;
 
                     return (
                       <div
@@ -866,20 +882,21 @@ export default function MobilePortalView({
                 type="button"
                 onClick={() => setCurrentScreen('jobs')}
                 style={{
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  padding: '6px 10px',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '7px 14px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.8rem',
+                  gap: '6px',
+                  fontSize: '0.82rem',
                   fontWeight: 700,
-                  color: '#475569'
+                  color: '#ffffff',
+                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.28)'
                 }}
               >
-                <ArrowLeft size={15} /> Back
+                <ArrowLeft size={16} color="#ffffff" /> Back
               </button>
 
               <div style={{ textAlign: 'right' }}>

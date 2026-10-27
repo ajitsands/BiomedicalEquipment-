@@ -39,10 +39,10 @@ export default function SelectSearch({
   const selectedOption = options.find(opt => String(opt[valueKey]) === String(value));
 
   const filteredOptions = options.filter(opt => {
-    const label = String(opt[labelKey] || '').toLowerCase();
-    const sub = subLabelKey ? String(opt[subLabelKey] || '').toLowerCase() : '';
-    const query = searchTerm.toLowerCase();
-    return label.includes(query) || sub.includes(query);
+    const combined = `${opt[labelKey] || ''} ${subLabelKey && opt[subLabelKey] ? opt[subLabelKey] : ''} ${opt.searchKeywords || ''}`.toLowerCase();
+    const words = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return true;
+    return words.every(w => combined.includes(w));
   });
 
   const handleSelect = (opt) => {

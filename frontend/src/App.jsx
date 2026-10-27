@@ -50,6 +50,19 @@ import { fetchDashboardStats, fetchHousekeepingStats } from './services/api';
 
 const VALID_VIEWS = ['dashboard', 'equipments', 'site_preparation', 'housekeeping', 'calendar', 'checklists', 'complaints', 'rfid', 'reports', 'mobile'];
 
+function resolveViewFromHash(rawHash) {
+  if (!rawHash) return null;
+  const cleaned = rawHash.replace(/^#\/?/, '').trim().toLowerCase();
+  if (VALID_VIEWS.includes(cleaned)) {
+    return cleaned;
+  }
+  // Support mobile view aliases and common typos (e.g. #mobie, #mobi, #field)
+  if (cleaned === 'mobie' || cleaned.startsWith('mobi') || cleaned === 'field' || cleaned === 'mobileview' || cleaned === 'portal') {
+    return 'mobile';
+  }
+  return null;
+}
+
 export default function App() {
   // Theme state: Default Light, can toggle to Dark
   const [theme, setTheme] = useState(() => {
@@ -58,9 +71,9 @@ export default function App() {
 
   // Preserve active view state via URL hash and localStorage so refreshing does NOT reset to dashboard
   const [currentView, setCurrentView] = useState(() => {
-    const hash = window.location.hash.replace(/^#\/?/, '').trim();
-    if (hash && VALID_VIEWS.includes(hash)) {
-      return hash;
+    const fromHash = resolveViewFromHash(window.location.hash);
+    if (fromHash) {
+      return fromHash;
     }
     const saved = localStorage.getItem('biotrack_current_view');
     if (saved && VALID_VIEWS.includes(saved)) {
@@ -123,9 +136,9 @@ export default function App() {
   // Support browser back/forward buttons and hash navigation
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#\/?/, '').trim();
-      if (hash && VALID_VIEWS.includes(hash)) {
-        setCurrentView(hash);
+      const resolved = resolveViewFromHash(window.location.hash);
+      if (resolved) {
+        setCurrentView(resolved);
       }
     };
     window.addEventListener('hashchange', handleHashChange);
@@ -215,7 +228,10 @@ export default function App() {
       )}
 
       {/* Main View Router */}
-      <main className="main-content">
+      <main 
+        className={`main-content ${currentView === 'mobile' ? 'mobile-active' : ''}`}
+        style={currentView === 'mobile' ? { padding: 0, margin: 0, maxWidth: '100%' } : {}}
+      >
         {currentView === 'dashboard' && (
           <DashboardView
             onViewEquipmentPassport={(id) => setPassportEquipmentId(id)}

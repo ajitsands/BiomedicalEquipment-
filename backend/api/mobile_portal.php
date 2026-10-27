@@ -54,7 +54,7 @@ try {
     }
 
     // 2. User Category Task Counts
-    if ($action === 'user_categories') {
+    if ($action === 'user_categories' || $action === 'categories') {
         $empId = (int)($_GET['employee_id'] ?? 0);
         $empName = trim($_GET['employee_name'] ?? '');
 
@@ -177,15 +177,22 @@ try {
 
         // --- PM JOBS ---
         if ($category === 'pm') {
-            // First look for assigned PM phases
-            $sql = "SELECT p.*, 
-                           p.id as phase_assignment_id,
+            // First look for assigned PM phases grouped by equipment
+            $sql = "SELECT 
                            e.id as equipment_id,
                            e.id as id,
                            e.asset_id, e.name as equipment_name, e.brand, e.model_number, e.serial_number,
                            e.department_id, e.building, e.floor, e.room_number, e.status as op_status,
                            d.name as department_name,
-                           dr.completed_count as completed_items_count, dr.total_items as total_items_count, dr.progress_percent as draft_percent
+                           MIN(p.pm_due_date) as pm_due_date,
+                           MAX(p.assigned_employee_id) as assigned_employee_id,
+                           GROUP_CONCAT(DISTINCT p.assigned_employee_name SEPARATOR ', ') as assigned_employee_name,
+                           IF(COUNT(CASE WHEN p.status != 'Completed' THEN 1 END) = 0, 'Completed', 'Pending') as status,
+                           MAX(dr.completed_count) as completed_items_count, 
+                           MAX(dr.total_items) as total_items_count, 
+                           MAX(dr.progress_percent) as draft_percent,
+                           'Full PM Checklist' as phase_name,
+                           'ALL' as phase_key
                     FROM pm_phase_assignments p
                     JOIN equipments e ON p.equipment_id = e.id
                     LEFT JOIN departments d ON e.department_id = d.id
@@ -202,7 +209,8 @@ try {
             } elseif ($statusFilter === 'Completed') {
                 $sql .= " AND p.status = 'Completed'";
             }
-            $sql .= " ORDER BY p.status ASC, p.pm_due_date ASC LIMIT 50";
+            $sql .= " GROUP BY e.id, e.asset_id, e.name, e.brand, e.model_number, e.serial_number, e.department_id, e.building, e.floor, e.room_number, e.status, d.name";
+            $sql .= " ORDER BY MIN(p.pm_due_date) ASC LIMIT 50";
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -212,15 +220,18 @@ try {
                 $fallbackSql = "SELECT e.id as equipment_id, e.id as id, e.asset_id, e.name as equipment_name, e.brand, e.model_number,
                                        e.next_pm_due_date as pm_due_date, e.building, e.floor, e.room_number,
                                        d.name as department_name,
-                                       dr.completed_count as completed_items_count, dr.total_items as total_items_count, dr.progress_percent as draft_percent,
-                                       IF(dr.id IS NOT NULL, 'In Progress', IF(e.next_pm_due_date < CURDATE(), 'Overdue', 'Scheduled')) as status,
+                                       MAX(dr.completed_count) as completed_items_count, 
+                                       MAX(dr.total_items) as total_items_count, 
+                                       MAX(dr.progress_percent) as draft_percent,
+                                       IF(MAX(dr.id) IS NOT NULL, 'In Progress', IF(e.next_pm_due_date < CURDATE(), 'Overdue', 'Scheduled')) as status,
                                        'Full PM Checklist' as phase_name,
                                        'ALL' as phase_key
                                 FROM equipments e
                                 LEFT JOIN departments d ON e.department_id = d.id
                                 LEFT JOIN pm_checklist_drafts dr ON e.id = dr.equipment_id
                                 WHERE e.next_pm_due_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) OR dr.id IS NOT NULL
-                                ORDER BY dr.id DESC, e.next_pm_due_date ASC LIMIT 30";
+                                GROUP BY e.id, e.asset_id, e.name, e.brand, e.model_number, e.next_pm_due_date, e.building, e.floor, e.room_number, d.name
+                                ORDER BY MAX(dr.id) DESC, e.next_pm_due_date ASC LIMIT 30";
                 $jobs = $pdo->query($fallbackSql)->fetchAll(PDO::FETCH_ASSOC);
             }
         }
@@ -261,7 +272,10 @@ try {
 
         // --- SITE PREP JOBS ---
         elseif ($category === 'site_prep') {
-            $sql = "SELECT s.*, d.name as department_name
+            $sql = "SELECT s.*, d.name as department_name,
+                           (SELECT COUNT(*) FROM site_inspection_details d2 WHERE d2.inspection_id = s.id AND d2.result != 'Pending') as completed_items_count,
+                           (SELECT COUNT(*) FROM site_checklist_master) as total_items_count,
+                           s.readiness_percentage as draft_percent
                     FROM site_inspections s
                     LEFT JOIN departments d ON s.department_id = d.id
                     WHERE 1=1";
@@ -271,9 +285,9 @@ try {
                 $params[] = "%{$empName}%";
             }
             if ($statusFilter === 'Pending') {
-                $sql .= " AND s.overall_status NOT IN ('Approved', 'Completed')";
+                $sql .= " AND s.overall_status NOT IN ('Approved', 'Completed', 'Approved & Ready for Delivery')";
             } elseif ($statusFilter === 'Completed') {
-                $sql .= " AND s.overall_status IN ('Approved', 'Completed')";
+                $sql .= " AND (s.overall_status IN ('Approved', 'Completed', 'Approved & Ready for Delivery') OR s.overall_status LIKE '%Approved%')";
             }
             $sql .= " ORDER BY s.inspection_date DESC LIMIT 50";
             $stmt = $pdo->prepare($sql);
@@ -281,7 +295,13 @@ try {
             $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (empty($jobs)) {
-                $jobs = $pdo->query("SELECT s.*, d.name as department_name FROM site_inspections s LEFT JOIN departments d ON s.department_id = d.id ORDER BY s.inspection_date DESC LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
+                $jobs = $pdo->query("SELECT s.*, d.name as department_name,
+                                           (SELECT COUNT(*) FROM site_inspection_details d2 WHERE d2.inspection_id = s.id AND d2.result != 'Pending') as completed_items_count,
+                                           (SELECT COUNT(*) FROM site_checklist_master) as total_items_count,
+                                           s.readiness_percentage as draft_percent
+                                    FROM site_inspections s 
+                                    LEFT JOIN departments d ON s.department_id = d.id 
+                                    ORDER BY s.inspection_date DESC LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
             }
         }
 
@@ -311,6 +331,18 @@ try {
                 $jobs = $pdo->query("SELECT h.*, d.name as department_name FROM housekeeping_inspections h LEFT JOIN departments d ON h.department_id = d.id ORDER BY h.conducted_at DESC LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
             }
         }
+
+        // Guarantee deduplication of jobs across all categories
+        $uniqueJobs = [];
+        $seenJobIds = [];
+        foreach ($jobs as $j) {
+            $jId = $j['id'] ?? $j['equipment_id'] ?? null;
+            if ($jId !== null && !isset($seenJobIds[$jId])) {
+                $seenJobIds[$jId] = true;
+                $uniqueJobs[] = $j;
+            }
+        }
+        $jobs = $uniqueJobs;
 
         jsonResponse([
             'status' => 'success',
@@ -461,12 +493,36 @@ try {
             $detail = $stmt->fetch(PDO::FETCH_ASSOC);
 
             // Fetch inspection questions and results
-            $qStmt = $pdo->prepare("SELECT r.id, r.checklist_item_id, r.status, r.notes, r.deficiency_id,
-                                           m.category, m.sub_category, m.question, m.gcc_reference, m.is_critical, m.item_code
-                                    FROM site_inspection_results r
-                                    JOIN site_preparation_master_checklist m ON r.checklist_item_id = m.id
-                                    WHERE r.site_inspection_id = ?
-                                    ORDER BY m.id ASC");
+            $qStmt = $pdo->prepare("SELECT 
+                                        m.id as checklist_item_id,
+                                        m.id as id,
+                                        m.item_code,
+                                        m.category_code,
+                                        m.deficiency_title,
+                                        m.deficiency_title as title,
+                                        m.inspection_question,
+                                        m.inspection_question as question,
+                                        m.inspection_question as task_description,
+                                        m.responsible_department,
+                                        m.default_priority,
+                                        m.specialist_department,
+                                        m.standard_tolerance,
+                                        m.standard_tolerance as standard_procedure,
+                                        m.evidence_required,
+                                        c.name as category_name,
+                                        c.name as sub_category,
+                                        c.icon as category_icon,
+                                        COALESCE(d.result, 'Pending') as result,
+                                        COALESCE(d.result, 'Pending') as status,
+                                        d.measured_value,
+                                        d.is_deficiency,
+                                        COALESCE(d.inspector_remarks, '') as inspector_remarks,
+                                        COALESCE(d.inspector_remarks, '') as notes,
+                                        COALESCE(d.inspector_remarks, '') as findings
+                                    FROM site_checklist_master m
+                                    JOIN site_checklist_categories c ON m.category_code = c.code
+                                    LEFT JOIN site_inspection_details d ON (d.checklist_item_id = m.id AND d.inspection_id = ?)
+                                    ORDER BY m.sort_order ASC, m.id ASC");
             $qStmt->execute([$jobId]);
             $items = $qStmt->fetchAll(PDO::FETCH_ASSOC);
         }
@@ -478,13 +534,41 @@ try {
             $detail = $stmt->fetch(PDO::FETCH_ASSOC);
 
             $qStmt = $pdo->prepare("SELECT r.id, r.checklist_item_id, r.status, r.notes, r.atp_reading_rlu, r.completed_at,
-                                           m.item_code, m.inspection_item, m.cleaning_criteria, m.standard_layer, m.is_regulatory_mandate, m.category_id
+                                           m.item_code, m.inspection_item, m.acceptance_criteria AS cleaning_criteria, m.acceptance_criteria,
+                                           m.verification_method, m.standard_layer, m.is_regulatory_mandate, m.category_code AS category_id, m.category_code
                                     FROM housekeeping_inspection_results r
                                     JOIN housekeeping_checklist_master m ON r.checklist_item_id = m.id
                                     WHERE r.inspection_id = ?
-                                    ORDER BY m.id ASC");
+                                    ORDER BY m.sort_order ASC, m.id ASC");
             $qStmt->execute([$jobId]);
-            $items = $qStmt->fetchAll(PDO::FETCH_ASSOC);
+            $rawItems = $qStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Deduplicate items by checklist_item_id
+            $deduped = [];
+            $seenItems = [];
+            foreach ($rawItems as $it) {
+                $cId = (int)($it['checklist_item_id'] ?? $it['id'] ?? 0);
+                if ($cId > 0 && !isset($seenItems[$cId])) {
+                    $seenItems[$cId] = true;
+                    $deduped[] = $it;
+                }
+            }
+            $items = $deduped;
+
+            // If empty, fetch master checklist for this area/facility
+            if (empty($items) && $detail) {
+                $areaMatch = $detail['area_type'] ?? 'Patient Rooms';
+                $allQ = $pdo->prepare("SELECT DISTINCT m.id AS checklist_item_id, m.id AS id, m.item_code, m.inspection_item,
+                                              m.acceptance_criteria AS cleaning_criteria, m.acceptance_criteria,
+                                              m.verification_method, m.standard_layer, m.is_regulatory_mandate,
+                                              m.category_code AS category_id, m.category_code,
+                                              'Pending' AS status, '' AS notes, NULL AS atp_reading_rlu, NULL AS completed_at
+                                       FROM housekeeping_checklist_master m
+                                       WHERE m.area_type = ? OR m.area_type = 'Patient Rooms' OR m.is_regulatory_mandate = 1
+                                       ORDER BY m.sort_order ASC, m.id ASC");
+                $allQ->execute([$areaMatch]);
+                $items = $allQ->fetchAll(PDO::FETCH_ASSOC);
+            }
         }
 
         jsonResponse([
@@ -602,9 +686,16 @@ try {
 
         // Housekeeping Draft Save
         elseif ($category === 'housekeeping') {
-            $updateItemStmt = $pdo->prepare("UPDATE housekeeping_inspection_results 
-                                              SET status = ?, notes = ?, atp_reading_rlu = ?, completed_at = IF(? != 'Pending', NOW(), completed_at)
-                                              WHERE inspection_id = ? AND (checklist_item_id = ? OR id = ?)");
+            $upsertItemStmt = $pdo->prepare("
+                INSERT INTO housekeeping_inspection_results 
+                    (inspection_id, checklist_item_id, status, notes, atp_reading_rlu, completed_at)
+                VALUES (?, ?, ?, ?, ?, IF(? != 'Pending', NOW(), NULL))
+                ON DUPLICATE KEY UPDATE 
+                    status = VALUES(status), 
+                    notes = VALUES(notes), 
+                    atp_reading_rlu = VALUES(atp_reading_rlu),
+                    completed_at = IF(VALUES(status) != 'Pending', NOW(), completed_at)
+            ");
             $completedCount = 0;
             $passedCount = 0;
             $failedCount = 0;
@@ -614,9 +705,11 @@ try {
                 $status = $res['status'] ?? 'Pending';
                 $notes = $res['notes'] ?? '';
                 $atp = isset($res['atp_reading_rlu']) && $res['atp_reading_rlu'] !== '' ? (int)$res['atp_reading_rlu'] : null;
-                $itemId = $res['checklist_item_id'] ?? $res['id'] ?? 0;
+                $itemId = (int)($res['checklist_item_id'] ?? $res['id'] ?? 0);
 
-                $updateItemStmt->execute([$status, $notes, $atp, $status, $jobId, $itemId, $itemId]);
+                if ($itemId > 0) {
+                    $upsertItemStmt->execute([$jobId, $itemId, $status, $notes, $atp, $status]);
+                }
 
                 if ($status !== 'Pending') {
                     $completedCount++;
@@ -626,20 +719,34 @@ try {
                 }
             }
 
-            $totalCount = count($results);
-            $score = $totalCount > 0 ? round(($passedCount / max(1, $totalCount - $naCount)) * 100, 2) : 0;
+            // Recalculate based on actual distinct items in database
+            $statsStmt = $pdo->prepare("SELECT 
+                COUNT(*) as total_items,
+                SUM(CASE WHEN status = 'Pass' THEN 1 ELSE 0 END) as passed_count,
+                SUM(CASE WHEN status = 'Fail' THEN 1 ELSE 0 END) as failed_count,
+                SUM(CASE WHEN status = 'N/A' THEN 1 ELSE 0 END) as na_count
+            FROM housekeeping_inspection_results WHERE inspection_id = ?");
+            $statsStmt->execute([$jobId]);
+            $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+
+            $tot = (int)($stats['total_items'] ?? 0);
+            $pass = (int)($stats['passed_count'] ?? 0);
+            $na = (int)($stats['na_count'] ?? 0);
+            $fail = (int)($stats['failed_count'] ?? 0);
+            $applicable = $tot - $na;
+            $score = $applicable > 0 ? round(($pass / $applicable) * 100, 2) : 0;
 
             $pdo->prepare("UPDATE housekeeping_inspections 
-                           SET passed_items = ?, failed_items = ?, na_items = ?, score_percent = ?, notes = ?
+                           SET total_items = ?, passed_items = ?, failed_items = ?, na_items = ?, score_percent = ?, notes = COALESCE(NULLIF(?, ''), notes)
                            WHERE id = ?")
-                ->execute([$passedCount, $failedCount, $naCount, $score, $engineerNotes, $jobId]);
+                ->execute([$tot, $pass, $fail, $na, $score, $engineerNotes, $jobId]);
 
             jsonResponse([
                 'status' => 'success',
-                'message' => "Housekeeping progress saved ({$completedCount}/{$totalCount} verified).",
+                'message' => "Housekeeping progress saved ({$completedCount}/{$tot} verified, {$score}% score).",
                 'data' => [
                     'completed_count' => $completedCount,
-                    'total_count' => $totalCount,
+                    'total_count' => $tot,
                     'score_percent' => $score
                 ]
             ]);
@@ -659,23 +766,45 @@ try {
 
         // Site Prep Progress Save
         elseif ($category === 'site_prep') {
-            $updateStmt = $pdo->prepare("UPDATE site_inspection_results SET status = ?, notes = ? WHERE site_inspection_id = ? AND (checklist_item_id = ? OR id = ?)");
+            $upsertStmt = $pdo->prepare("
+                INSERT INTO site_inspection_details (inspection_id, checklist_item_id, result, inspector_remarks, verified_at)
+                VALUES (?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE 
+                    result = VALUES(result),
+                    inspector_remarks = VALUES(inspector_remarks),
+                    verified_at = NOW()
+            ");
             $passed = 0;
             $total = count($results);
             foreach ($results as $res) {
                 $status = $res['status'] ?? 'Pending';
-                $notes = $res['notes'] ?? '';
-                $itemId = $res['checklist_item_id'] ?? $res['id'] ?? 0;
-                $updateStmt->execute([$status, $notes, $jobId, $itemId, $itemId]);
+                $notes = $res['notes'] ?? $res['findings'] ?? '';
+                $itemId = (int)($res['checklist_item_id'] ?? $res['id'] ?? 0);
+                if ($itemId > 0) {
+                    $upsertStmt->execute([$jobId, $itemId, $status, $notes]);
+                }
                 if ($status === 'Pass' || $status === 'Compliant') $passed++;
             }
-            $pct = $total > 0 ? round(($passed / $total) * 100, 2) : 0;
-            $pdo->prepare("UPDATE site_inspections SET readiness_percentage = ?, notes = ? WHERE id = ?")
+
+            // Recalculate Readiness Percentage based on all items
+            $statsStmt = $pdo->prepare("SELECT 
+                COUNT(*) as total_items,
+                SUM(CASE WHEN result = 'Pass' THEN 1 ELSE 0 END) as passed_count,
+                SUM(CASE WHEN result = 'N/A' THEN 1 ELSE 0 END) as na_count
+            FROM site_inspection_details WHERE inspection_id = ?");
+            $statsStmt->execute([$jobId]);
+            $counts = $statsStmt->fetch(PDO::FETCH_ASSOC);
+
+            $applicable = (int)($counts['total_items'] ?? 0) - (int)($counts['na_count'] ?? 0);
+            $passedCount = (int)($counts['passed_count'] ?? 0);
+            $pct = ($applicable > 0) ? round(($passedCount / $applicable) * 100, 2) : 0.00;
+
+            $pdo->prepare("UPDATE site_inspections SET readiness_percentage = ?, notes = COALESCE(NULLIF(?, ''), notes) WHERE id = ?")
                 ->execute([$pct, $engineerNotes, $jobId]);
 
             jsonResponse([
                 'status' => 'success',
-                'message' => "Site inspection progress saved ({$passed}/{$total} compliant)."
+                'message' => "Site inspection progress saved ({$passed}/{$total} items updated, {$pct}% readiness)."
             ]);
         }
     }
@@ -761,11 +890,12 @@ try {
         // Finalize Site Prep
         elseif ($category === 'site_prep') {
             $pdo->prepare("UPDATE site_inspections 
-                           SET overall_status = 'Approved', 
+                           SET overall_status = 'Approved & Ready for Delivery', 
                                inspection_date = CURDATE(),
-                               readiness_percentage = 100.00
+                               readiness_percentage = 100.00,
+                               notes = COALESCE(NULLIF(?, ''), notes)
                            WHERE id = ?")
-                ->execute([$jobId]);
+                ->execute([$notes, $jobId]);
 
             jsonResponse([
                 'status' => 'success',

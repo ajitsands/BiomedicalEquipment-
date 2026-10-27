@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import SelectSearch from './SelectSearch';
 import { QRCodeSVG } from 'qrcode.react';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
@@ -81,9 +82,21 @@ export default function MobilePortalLauncherModal({
       setLoading(true);
       const res = await fetchMobileCategoryJobs(cat, null, '', 'Pending');
       if (res && res.status === 'success') {
-        setCategoryJobs(res.data.jobs || []);
-        if (res.data.jobs?.length > 0) {
-          setSelectedJobId(res.data.jobs[0].id || res.data.jobs[0].equipment_id);
+        const rawJobs = res.data.jobs || [];
+        // Guarantee deduplication of jobs by unique equipment/job ID
+        const uniqueMap = new Map();
+        rawJobs.forEach(job => {
+          const uid = job.id || job.equipment_id;
+          if (uid && !uniqueMap.has(String(uid))) {
+            uniqueMap.set(String(uid), job);
+          }
+        });
+        const uniqueJobs = Array.from(uniqueMap.values());
+        setCategoryJobs(uniqueJobs);
+        if (uniqueJobs.length > 0) {
+          setSelectedJobId(String(uniqueJobs[0].id || uniqueJobs[0].equipment_id));
+        } else {
+          setSelectedJobId('');
         }
       }
     } catch (err) {
@@ -123,7 +136,7 @@ export default function MobilePortalLauncherModal({
       return;
     }
 
-    const emp = allEmployees.find(e => e.id == selectedEmployeeId);
+    const emp = allEmployees.find(e => String(e.id) === String(selectedEmployeeId));
     if (!emp) return;
 
     try {
@@ -149,6 +162,47 @@ export default function MobilePortalLauncherModal({
       setAssigning(false);
     }
   };
+
+  // Select2 Options for Jobs & Work Orders
+  const jobOptions = categoryJobs.map(job => {
+    const id = String(job.id || job.equipment_id);
+    const title = job.asset_id 
+      ? `${job.asset_id} • ${job.equipment_name || job.name || 'Medical Equipment'}`
+      : job.ticket_number 
+      ? `${job.ticket_number} • ${job.equipment_name || 'Device'} (${job.priority || 'Normal'})`
+      : job.audit_number
+      ? `${job.audit_number} • ${job.room_number || job.target_model || 'Facility'}`
+      : `Job #${id}`;
+
+    const subParts = [];
+    if (job.department_name) subParts.push(job.department_name);
+    if (job.room_number) subParts.push(`Room: ${job.room_number}`);
+    if (job.brand || job.model_number) subParts.push([job.brand, job.model_number].filter(Boolean).join(' '));
+    if (job.status) subParts.push(`Status: ${job.status}`);
+
+    return {
+      value: id,
+      label: title,
+      subLabel: subParts.join(' • '),
+      searchKeywords: `${job.asset_id || ''} ${job.equipment_name || ''} ${job.name || ''} ${job.ticket_number || ''} ${job.brand || ''} ${job.model_number || ''} ${job.serial_number || ''} ${job.department_name || ''} ${job.room_number || ''}`
+    };
+  });
+
+  // Select2 Options for Field Staff / Employees
+  const employeeOptions = (allEmployees || []).map(emp => {
+    const id = String(emp.id);
+    const subParts = [];
+    if (emp.role || emp.designation) subParts.push(emp.role || emp.designation);
+    if (emp.employee_code) subParts.push(`Badge: ${emp.employee_code}`);
+    if (emp.department_name) subParts.push(emp.department_name);
+
+    return {
+      value: id,
+      label: emp.full_name,
+      subLabel: subParts.join(' • ') || 'Hospital Staff',
+      searchKeywords: `${emp.full_name} ${emp.employee_code || ''} ${emp.role || ''} ${emp.designation || ''}`
+    };
+  });
 
   return (
     <Modal
@@ -405,11 +459,18 @@ export default function MobilePortalLauncherModal({
               })}
             </div>
 
-            {/* Select Task / Job Dropdown */}
+            {/* Select Task / Job Dropdown (Select2 Searchable) */}
             <div className="form-group" style={{ margin: 0 }}>
-              <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
-                Select Open Job / Work Order:
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 700, margin: 0 }}>
+                  Select Open Job / Work Order:
+                </label>
+                {categoryJobs.length > 0 && (
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {categoryJobs.length} {categoryJobs.length === 1 ? 'task' : 'tasks'} available
+                  </span>
+                )}
+              </div>
               {loading ? (
                 <div style={{ padding: '10px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading jobs...</div>
               ) : categoryJobs.length === 0 ? (
@@ -417,48 +478,30 @@ export default function MobilePortalLauncherModal({
                   No open jobs found in this category.
                 </div>
               ) : (
-                <select
+                <SelectSearch
+                  options={jobOptions}
                   value={selectedJobId}
-                  onChange={(e) => setSelectedJobId(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', fontSize: '0.85rem' }}
-                >
-                  {categoryJobs.map(job => {
-                    const id = job.id || job.equipment_id;
-                    const title = job.asset_id 
-                      ? `${job.asset_id} • ${job.equipment_name || job.name} (${job.department_name || job.room_number || 'Hospital'})`
-                      : job.ticket_number 
-                      ? `${job.ticket_number} • ${job.equipment_name || 'Device'} (${job.priority})`
-                      : job.audit_number
-                      ? `${job.audit_number} • ${job.room_number || job.target_model}`
-                      : `Job #${id}`;
-                    return (
-                      <option key={id} value={id}>
-                        {title}
-                      </option>
-                    );
-                  })}
-                </select>
+                  onChange={(val) => setSelectedJobId(val)}
+                  placeholder="Search equipment name, asset ID, room, department..."
+                  subLabelKey="subLabel"
+                  disabled={loading || categoryJobs.length === 0}
+                />
               )}
             </div>
 
-            {/* Select Technician / Staff Dropdown */}
+            {/* Select Technician / Staff Dropdown (Select2 Searchable) */}
             <div className="form-group" style={{ margin: 0 }}>
               <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
                 Assign to Field Staff / Engineer:
               </label>
-              <select
+              <SelectSearch
+                options={employeeOptions}
                 value={selectedEmployeeId}
-                onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', fontSize: '0.85rem' }}
-                required
-              >
-                <option value="">-- Choose Employee / Technician --</option>
-                {allEmployees.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.full_name} ({emp.role || emp.designation}) — {emp.employee_code}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedEmployeeId(val)}
+                placeholder="-- Search & choose employee / technician --"
+                subLabelKey="subLabel"
+                disabled={loading}
+              />
             </div>
 
             {/* Submit Assignment */}
